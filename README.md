@@ -143,4 +143,17 @@ symbols are short and only can convey frequencies above 20Hz or so
 When invoked with ```--print```, the ```mk_nck-hue_power_sum.py```
 script generates PNG and PDF files of the graphs.
 
+
+## 5) Full NCK Demo for 48 bits
+
+The following figure shows the output of the ```demo-nck.py``` script.
+The NCK wafeform is 500 Hz wide, keying rate is 20 Baud, SNR is 3dB
+over AWGN. In this simulation run, all 48 bits were recovered without
+errors. The third subfigure shows the lowpass-filtered output of the
+lag-1 autocorrelator to which the modulation input is overlayed as a
+reference: A simple "less-than-zero" detector yields the original data
+bits.
+
+![NCK demo for 48 bits](img/nck-demo.png)
+
 ---
