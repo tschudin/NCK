@@ -5,13 +5,19 @@ demonstrated in this repository for audio channels of 2.5kHz.
 
 ![Waterfall with NCK example](img/nck-spectro-example.png)
 
+Generating and detecting noise of different colors is easy (as it does
+not require the use of Fast Fourier Transform, FFT) and leads to a
+very frugal processing pipeline, as shown below.
+
+![NCK block diagram](img/nck-block-diagram.png)
+
 ## 1) Introduction
 
-NCK uses two distinct noise colors to encode bits, while the
-traditional methods like FSK and PSK use a signal's frequency or phase
-to this end. Specially crafted noise hues, called "reddish" and
-"blueish", were designed such that the signal's averaged power over
-time looks like white noise i.e., has a flat frequency
+NCK uses two distinct noise colors to encode bits while the
+traditional methods like ASK, FSK and PSK use a signal's amplitude,
+frequency or phase to this end. Specially crafted noise hues, called
+"reddish" and "blueish", were designed such that the signal's averaged
+power over time looks like white noise i.e., has a flat frequency
 distribution. This makes NCK a quite robust modulation technique as no
 frequency or phase constellation of the signal carries special
 significance - it's all encoded in the noise' hue.
