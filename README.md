@@ -31,12 +31,12 @@ similarly cheap to compute. We therefore envisage NCK to be
 attractive for environments with very constraint compute resources.
 
 By itself, NCK has terrible BER performance: It cannot reliably
-delivery bits due to the stochastic nature of the noise used which
-leads to bit errors in almost every frame, regardless of the chosen
-SNR level. Forward Error Correction (FEC) is thus needed where
-computationally cheap methods are recommended e.g., (7,4) Hamming or
-(23,12,8) extended Golay. The following figure shows the performance
-of NCK in a AWGN channel. Note that this simulation used a
+delivery longer stretches of bits due to the stochastic nature of the
+"noise symbols", which leads to bit errors in almost every frame regardless
+of the chosen SNR level. Forward Error Correction (FEC) is thus needed
+where computationally cheap methods are recommended e.g., (7,4)
+Hamming or (23,12,8) extended Golay. The following figure shows the
+performance of NCK in a AWGN channel. Note that this simulation used a
 computationally heavy FEC method, LDPC, in order to allow some
 comparisons with the well-known FT8 weak signal modulation and
 encoding.
@@ -69,7 +69,7 @@ Auxiliary files:
 ## 3) Gallery of Colored Noise Types
 
 In ```doc/nck-noise-gallery.pdf```, also shown below, each column
-stands for a different noise types.
+stands for a differently colored noise.
 
 ![Gallery of Colored Noise](img/nck-noise-gallery.png)
 
