@@ -3,6 +3,8 @@
 NCK modulation is an experimental waveform for radio amateurs and is
 demonstrated in this repository for audio channels of 2.5kHz.
 
+![Waterfall with NCK example](img/nck-spectro-example.png)
+
 ## 1) Introduction
 
 NCK uses two distinct noise colors to encode bits, while the
@@ -15,7 +17,7 @@ frequency or phase constellation of the signal carries special
 significance - it's all encoded in the noise' hue.
 
 One advantage of NCK is that modulation as well as demodulation is
-computationally very cheap because not FFT or similar technique is
+computationally very cheap because no FFT or similar technique is
 required. Signal generation is based on either low- or highpass
 filtering white noise, using a simple subtraction or addition
 operation. Demodulation uses the lag1-autocorrelation metric that is
@@ -45,9 +47,9 @@ therefore the accuracy of the demodulation.
 
 The most relevant files are:
 
-- ```doc``` -- PDF for various generated graphs, as well as the NCK whitepaper
-- ```py/nck.py``` -- Noice Color Keying library
+- ```py/ncklib.py``` -- Noice Color Keying library
 - ```py/demo-nck.py``` -- shows the working of NCK with modulation and demodulation
+- ```doc``` -- PDF for various generated graphs, as well as the NCK whitepaper
 
 Auxiliary files:
 
