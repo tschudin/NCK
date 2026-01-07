@@ -44,16 +44,16 @@ therefore the accuracy of the demodulation.
 The most relevant files are:
 
 - ```doc``` -- PDF for various generated graphs, as well as the NCK whitepaper
-- ```nck.py``` -- Noice Color Keying library
-- ```demo-nck.py``` -- shows the working of NCK with modulation and demodulation
+- ```py/nck.py``` -- Noice Color Keying library
+- ```py/demo-nck.py``` -- shows the working of NCK with modulation and demodulation
 
 Auxiliary files:
 
-- ```ft8_coding.py``` -- LDPC and CRC routines
-- ```sp.py``` -- draws spectrogram for ```out.wav```, or some given file
-- ```mk_nck-hue_power_sum.py``` -- simulate blueish and reddish noise, show power sum
-- ```mk_nck-noise-gallery.py``` -- generates graphs for various noise colors
-- ```mk_nck-fer_vs_snr_vs_kr.py``` -- generates above FER-vs-SNR graph
+- ```py/ft8_coding.py``` -- LDPC and CRC routines
+- ```py/sp.py``` -- draws spectrogram for ```out.wav```, or some given file
+- ```py/mk_nck-hue_power_sum.py``` -- simulate blueish and reddish noise, show power sum
+- ```py/mk_nck-noise-gallery.py``` -- generates graphs for various noise colors
+- ```py/mk_nck-fer_vs_snr_vs_kr.py``` -- generates above FER-vs-SNR graph
 
 
 ## Gallery of Colored Noise Types
