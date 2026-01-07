@@ -3,6 +3,8 @@
 NCK modulation is an experimental waveform for radio amateurs and is
 demonstrated in this repository for audio channels of 2.5kHz.
 
+## 1) Introduction
+
 NCK uses two distinct noise colors to encode bits, while the
 traditional methods like FSK and PSK use a signal's frequency or phase
 to this end. Specially crafted noise hues, called "reddish" and
@@ -39,7 +41,7 @@ symbols which improves the quality of the lag1-autocorrelation and
 therefore the accuracy of the demodulation.
 
 
-## Files:
+## 2) Files
 
 The most relevant files are:
 
@@ -56,7 +58,7 @@ Auxiliary files:
 - ```py/mk_nck-fer_vs_snr_vs_kr.py``` -- generates above FER-vs-SNR graph
 
 
-## Gallery of Colored Noise Types
+## 3) Gallery of Colored Noise Types
 
 In ```doc/nck-noise-gallery.pdf```, also shown below, each column
 stands for a different noise types.
@@ -68,7 +70,7 @@ stands for a different noise types.
 - The third row shows the same power distribution, but this time in a log-log plot. This representation is typically found in descriptions of colored noise (brown, pink, white, blue, violet), as these noise types obey a power-law.
 - The forth row shows again the power distribution with a logarithmic scale but keeps the frequency axis linear.
 
-### How to read the "Gallery of Colored Noise Types"
+### 3.1) How to read the "Gallery of Colored Noise Types"
 
 First, note the red curves (in the third row): these straight lines
 are characteristic of pink, white and blue noise whose power-law
@@ -95,7 +97,7 @@ perfectly "power-complementary": summing up reddish and blueish noise
 results in white noise.
 
 
-## FFT-free Low- and Highpass Filters
+## 4) FFT-free Low- and Highpass Filters
 
 We derive reddish noise from white noise by applying a lowpass filter
 consisting of _summing_ two consecutive time-domain values: Two sample
