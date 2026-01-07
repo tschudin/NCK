@@ -1,7 +1,7 @@
 # Noise Color Keying (NCK)
 
 NCK modulation is an experimental waveform for radio amateurs and is
-demomstrated in this repository for audio channels of 2.5kHz.
+demonstrated in this repository for audio channels of 2.5kHz.
 
 NCK uses two distinct noise colors to encode bits, while the
 traditional methods like FSK and PSK use a signal's frequency or phase
@@ -17,7 +17,7 @@ computationally very cheap because not FFT or similar technique is
 required. Signal generation is based on either low- or highpass
 filtering white noise, using a simple subtraction or addition
 operation. Demodulation uses the lag1-autocorrelation metric that is
-similarily cheap to compute. We therefore envisage NCK to be
+similarly cheap to compute. We therefore envisage NCK to be
 attractive for environments with very constraint compute resources.
 
 By itself, NCK has terrible BER performance: It cannot reliably
@@ -28,10 +28,10 @@ computationally cheap methods are recommended e.g., (7,4) Hamming or
 (23,12,8) extended Golay. The following figure shows the performance
 of NCK in a AWGN channel. Note that this simulation used a
 computationally heavy FEC method, LDPC, in order to allow some
-comparisons with the wellknown FT8 weak signal modulation and
+comparisons with the well-known FT8 weak signal modulation and
 encoding.
 
-![](img/nck-fer_vs_snr_kr.png)
+![FER vs SNR](img/nck-fer_vs_snr_vs_kr.png)
 
 Reducing the keying rate improves sensitivity a lot: By having longer
 symbol times, the receiver can better average the colored noise
@@ -50,7 +50,7 @@ The most relevant files are:
 Auxiliary files:
 
 - ```ft8_coding.py``` -- LDPC and CRC routines
-- ```sp.py``` -- draws spectogram for ```out.wav```, or some given file
+- ```sp.py``` -- draws spectrogram for ```out.wav```, or some given file
 - ```mk_nck-hue_power_sum.py``` -- simulate blueish and reddish noise, show power sum
 - ```mk_nck-noise-gallery.py``` -- generates graphs for various noise colors
 - ```mk_nck-fer_vs_snr_vs_kr.py``` -- generates above FER-vs-SNR graph
@@ -64,7 +64,7 @@ stands for a different noise types.
 ![Gallery of Colored Noise](img/nck-noise-gallery.png)
 
 - The first row shows the weights that each frequency receives, in a linear plot.
-- The second row shows the resulting power distibution, per frequency. Again, the plots on this row are linear.
+- The second row shows the resulting power distribution, per frequency. Again, the plots on this row are linear.
 - The third row shows the same power distribution, but this time in a log-log plot. This representation is typically found in descriptions of colored noise (brown, pink, white, blue, violet), as these noise types obey a power-law.
 - The forth row shows again the power distribution with a logarithmic scale but keeps the frequency axis linear.
 
