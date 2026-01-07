@@ -54,7 +54,7 @@ therefore the accuracy of the demodulation.
 The most relevant files are:
 
 - ```py/ncklib.py``` -- Noice Color Keying library
-- ```py/demo-nck.py``` -- shows the working of NCK with modulation and demodulation
+- ```py/demo-nck.py``` -- shows the working of NCK with modulation and demodulation (see also Section 5, below)
 - ```doc``` -- PDF for various generated graphs, as well as the NCK whitepaper
 
 Auxiliary files:
@@ -105,7 +105,7 @@ perfectly "power-complementary": summing up reddish and blueish noise
 results in white noise.
 
 
-## 4) FFT-free Low- and Highpass Filters
+## 4) FFT-free Noise Shaping
 
 We derive reddish noise from white noise by applying a lowpass filter
 consisting of _summing_ two consecutive time-domain values: Two sample
