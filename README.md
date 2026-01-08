@@ -121,27 +121,23 @@ In order to derive blueish noise from white noise we need a highpass
 filter. This can be implemented by _subtracting_ two consecutive
 time-domain values: The difference in case of a low-frequency signal
 will be close to zero, effectively filtering out low frequencies. This
-results in a close-to sinus-shaped frequency distribution.
+results in a close-to sine-shaped frequency distribution.
 
 The ```mk_nck-hue_power_sum.py``` script randomly derives either
 reddish and blueish noise before accumulating them separately. After
 1000s of runs, these sums of reddish and blueish noises are then added
-up to show that in fact these two noise hues are complementary and sum
-of their power yields white noise (all frequency have the same power
-level).
+up to show (in green) that in fact these two noise hues are
+complementary and that the sum of their power yields white noise:
+all frequencies of the sum have the same power level.
 
-The discrepancy of the highpass filter compared to the ideal sinus
-curve (visible in the lower log-log plot) is due to the limited length
-of the generated white noise (duration of just one second) from which
-we derive the blueish noise: This prevents the inclusion of really low
-frequencies (below 1Hz) in the signal, hence the effect of the blue
-curve showing "too little" low frequencies. The deficit of such low
-frequencies is not relevant in practice as anyhow NCK-modulated
-symbols are short and only can convey frequencies above 20Hz or so
-(depending on the keying rate).
-
-When invoked with ```--print```, the ```mk_nck-hue_power_sum.py```
-script generates PNG and PDF files of the graphs.
+The discrepancy of the blue highpass-filtered curve compared to the
+ideal squared sine (visible in the lower log-log plot) is due to the
+limited length of the noise signal, in terms of samples. If we move to
+250kHz instead of 250Hz (and thus have 5000000 sampels instead of
+500), the ratio between the "floor" and the highest power level drops
+from 10^{-3} to 10^{-6}. As anyhow NCK-modulated symbols are short
+(and can't carry much low frequencies), this discrepancy does not have
+any practical impact.
 
 
 ## 5) Full NCK Demo for 48 bits
