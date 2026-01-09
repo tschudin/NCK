@@ -71,13 +71,12 @@ class NCK:
         self.USE_FFT = USE_FFT
 
     def _noise(self, hue):
-        # generate one second samples of "noise with a hue"
+        # generate "two symbols worth" of samples of "noise with a hue"
         #   where hue is in ['reddish', 'white', 'blueish']
-        SPS = 2 * self.BW # samples per second
-        # FIXME: probably much less white noise is required,
-        #        especially for blueish noise - but play it safe
 
-        wn = 2 * np.random.rand(SPS) - 1
+        SPS2 = int(2 * 2 * self.BW / self.KR) # samples per symbol, doubled
+        wn = 2 * np.random.rand(SPS2) - 1
+
         if hue == 'white':
             return wn
 
@@ -110,7 +109,7 @@ class NCK:
     def modulate(self, bits):
         # returns timedomain signal at selected FS, no padding
     
-        w = 2 * self.BW // self.KR  # samples per symbol (when FS=2*BW)
+        w = int(2 * self.BW / self.KR)  # samples per symbol (when FS=2*BW)
         sig = np.zeros(0)
         for b in bits:
             if self.CF != 0: # mixing will flip the frequenc range
@@ -182,11 +181,11 @@ class NCK:
         rcvd = signal.resample(rcvd, int(2*self.BW * len(rcvd) / self.FS))
         rcvd /= np.max(np.abs(rcvd))
         
-        w = 2 * self.BW // self.KR # samples per symbol
-        rcvd = np.hstack( ([0.1]*(w//2), rcvd, [0.1]*(w//2)) )
+        w = int(2 * self.BW / self.KR) # samples per symbol
+        rcvd = np.hstack( ([0.01]*w, rcvd, [0.01]*w) )
         lag1autocorr_init(w)
 
-        r1 = [ lag1autocorr(x) for x in rcvd ][w+w//2:]
+        r1 = [ lag1autocorr(x) for x in rcvd ][2*w:]
         # smooth according to sender's keying rate
         sos = signal.butter(2, self.KR, 'low',
                             fs=self.BW,  output='sos')
@@ -195,8 +194,9 @@ class NCK:
             r1 *= -1
 
         # translate given offset to new sampling frequency (2*BW)
-        msgstart = 2 * self.BW * msgstart // self.FS
+        msgstart = int(2 * self.BW * msgstart / self.FS)
         _r1 = r1[msgstart:]
+
         # sample the r1 signal (=decode)
         msg = [ 1 if _r1[w*i] < 0 else 0 for i in range(len(_r1)//w) ]
 

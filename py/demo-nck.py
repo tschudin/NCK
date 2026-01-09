@@ -27,8 +27,8 @@ parser.add_argument('-b', '--bw', type=int, default=500,
 parser.add_argument('-c', '--centerfreq', type=int, default=1250)
 parser.add_argument('-f', '--fs', type=int, default=12000,
                           help="sampling frequency in Hz")
-parser.add_argument('-k', '--kr', type=int, default=20,
-                          help="keying rate in Baud")
+parser.add_argument('-k', '--kr', type=float, default=20,
+                          help="keying rate in Baud, can be smaller than 1")
 parser.add_argument('-l', '--length', type=int, default=48,
                           help="msg len in bits, default is 48." + \
                                " Use 174 for FT8 comparison")
@@ -60,6 +60,7 @@ if LEN == 174: # apply FT8 encoding
 else:
     bits = [ 0 if np.random.rand(1) < 0.5 else 1 for i in range(LEN) ]
 audio = nck.modulate(bits)
+print(f"transmission time = {'%.1f'%(len(audio)/nck.FS)} sec")
 
 ''' # test for two parallel NCK signals (with -k 100 -b 1200 -c 1700)
 nck2 = NCK(args=args, FS=args.fs, CF=600,
@@ -151,7 +152,7 @@ ax.plot(duration * np.arange(len(r1))/len(r1), r1, 'b')
 ax.set_ylabel("lag 1 autocorrelation")
 
 # generate curve of original bit values, to be overlayed on recovered r1 signal
-w = 2 * args.bw // args.kr # samples per symbol
+w = int(2 * args.bw / args.kr) # samples per symbol
 sent = ([0] * (2*args.bw//w)) + \
        [-1 if b else 1 for b in bits] + \
        ([0] * (2*args.bw//w + 2))
@@ -182,7 +183,7 @@ for i in range(len(bits)):
 if err == 0:
     print(f"rcvd= {s} (no bit errors)")
 else:
-    print(f"rcvd= {s} ({err} bit errors, {int(100*err/len(bits) + 0.9)}%)")
+    print(f"rcvd= {s} ({err} bit errors, {int(100*err/len(msg) + 0.9)}%)")
 
 if err > 0 and len(bits) == 174: # FT8 encoding
     x, corr = ft8.ldpc_decode(llr, 100)
@@ -200,7 +201,7 @@ if err > 0 and len(bits) == 174: # FT8 encoding
         if err2 == 0:
             print(f"\033[0;93mcorr\033[0m= {s} (no frame error)")
         else:
-            print(f"corr= {s} ({err2} errors, {int(100*err2/len(bits) + 0.9)}%)")
+            print(f"corr= {s} ({err2} errors, {int(100*err2/len(bits)+0.9)}%)")
 
 now = f"{str(datetime.now(UTC))[:19]} UTC"
 if args.snr == '':
@@ -210,7 +211,7 @@ else:
 if err == 0:
     err = ", no errors"
 else:
-    err = f", {int(100*err/len(bits) + 0.9)}% errors"
+    err = f", {int(100*err/len(msg) + 0.9)}% errors"
 
 fig.supylabel(f"Noise Color Keying (NCK): simulation {now}{snr}{err}", x=0.95)
 
