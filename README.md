@@ -1,7 +1,9 @@
 # Noise Color Keying (NCK)
 
 NCK modulation is an experimental waveform for radio amateurs and is
-demonstrated in this repository for audio channels of 2.5kHz.
+demonstrated in this repository for audio channels of 2.5kHz. The
+approach and implementation details are described in the [NCK
+Whitepaper](doc/NCK-whitepaper-20260109.pdf) from Jan 2026.
 
 ![Waterfall with NCK example](img/nck-spectro-example.png)
 
