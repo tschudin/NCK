@@ -1,0 +1,358 @@
+% noise-color-keying (NCK)
+
+\documentclass[10pt]{article}
+
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{helvet}
+\usepackage[a4paper, % bindingoffset=0.2in,
+            left=0.6in,
+            right=0.6in,
+            top=1.1in,
+            bottom=0.8in]{geometry}
+\usepackage{stackengine}
+\usepackage{url}
+
+\title{\vspace*{-2.5cm}{\bf Noise Color Keying (NCK)}\\
+  \vskip 0.4em\large Christian Tschudin
+  $\langle$christian.tschudin@unibas.ch$\rangle$, HB9HUH/K6CFT, Jan 2026}
+
+\author{}\date{\vspace*{-1.7cm}}
+
+\setlength{\columnsep}{1.5em}
+
+\renewcommand{\sfdefault}{phv}
+\renewcommand\familydefault{\sfdefault}
+\twocolumn
+\linespread{1.1}
+
+\begin{document}
+\pagenumbering{gobble}
+\maketitle
+
+\noindent
+Textbooks on modulation typically start with introducing
+Frequency-Shift-Keying (FSK), then Phase-Shift-Keying (PSK), followed
+by all their variants.  What is lost in this way of telling the
+modulation story is that {\em any} way to impress the airwaves with a
+suitable pattern can be used to convey information bits. ``Suitable''
+means that demodulation should be possible with modest effort.
+
+\begin{figure}[ht]
+  \center
+  % \vspace*{-0.5em}
+  \includegraphics[width=0.85\linewidth]{fig/nck-spectro-example.png}
+  \vspace*{-0.8em}
+  \caption{\em Example of a noise-color-keyed signal shown in a
+    waterfall representation.}
+  \label{fig:example}
+  \vspace*{-0.4em}
+\end{figure}
+
+\noindent
+In this article we use {\em colored noise} as the basis for an
+unconventional modulation technique that is surprisingly easy to
+programmatically demodulate, namely without any Fast Fourier Transform
+(FFT), and based on a simple system architecture, as shown below.
+
+\begin{figure}[ht]
+  \center
+  \vspace*{-0.2em}
+  \includegraphics[width=1\linewidth]{fig/nck-block-diagram.png}
+  \vspace*{-2.4em}
+  \caption{\em Block diagram of a NCK sender and receiver.}
+  \label{fig:blockdiagram}
+  \vspace*{-0.4em}
+\end{figure}
+
+\noindent This report is structured as follows: After having explained
+our approach, we introduce ``reddish'' and ``blue\-ish'' noise for
+representing a 0 or 1 value and show their complementarity, meaning
+that adding them creates white noise. We then provide FFT-less generation and
+detection methods. In a third part we report on our first evaluations based
+on simulations.
+
+In a nutshell, we were able to demonstrate this novel modulation
+technique for transferring data packets inside a full 2.5kHz audio
+channel as well as a narrow ``2Hz noise needle'', at a
+keying rate of 0.2 Baud. The latter opens up the possibility to use
+Noise Color Keying for very weak signal communications.
+
+\vspace*{-0.5em}
+\subsubsection*{1) Background and Approach}
+\vspace*{-0.5em}
+
+Noise by definition is a random signal: It cannot be predicted nor
+does it correlate with any other signal. But depending on its
+frequency distribution, noise can be labeled with a ``color''. In
+white noise, all frequencies are present with equal intensity. Pink
+noise, on the other hand, has strong low frequencies but virtually no
+high frequencies. The opposite is true for blue noise. The frequency
+distribution, that is the {\em weight} $w(f)$ for a specific frequency
+$f$, is defined as $w(f) = 1/f^p$ for the three colors mentioned: pink
+noise has $p=1$, white noise has $p=0$ while setting $p=-1$ results in
+blue noise. For the human ear, the frequency {\em weights} themselves
+are not relevant but the resulting {\em power} distribution is. This
+is also the reason why noise colors are usually explained by showing
+their power spectra~\cite{Noise@Wikipedia}.  In the upper row of
+Figure~\ref{fig:pink_and_blue}, the power distributions of pink, white
+and blue show up as a straight lines in a log-log plot. Note that the
+power spectrum is obtained from the frequency distribution by squaring
+each frequency's weight.
+
+\begin{figure}[ht]
+  \center
+  \vspace*{-0.6em}
+  \includegraphics[width=1.0\linewidth]{fig/noise-gallery-1.pdf}
+  \vspace*{-2.4em}
+  \caption{\em Upper row: Power spectra of pink, white and blue noise, logarithmic plot. Lower row: Same spectra but shown in linear scale.}
+  \label{fig:pink_and_blue}
+\end{figure}
+
+The log-log chart is misleading though: At linear scale we see that
+pink noise has almost all power concentrated in the lowest frequencies
+while the power of blue noise is parabolically spread out (lower row of
+Figure~\ref{fig:pink_and_blue}). Ideally we want two noise colors
+which are {\em complementary}: Summing up their power would result in
+a flat power spectrum. In Figure~\ref{fig:example} we showed such a
+modulation: Added up over the full packet's duration we get a quite flat
+power distribution (although we see fluctuations due to the noise'
+randomness). The question is: How do we have to choose the frequency
+distributions for obtaining two complementary noise colors?
+
+
+\vspace*{-0.5em}
+\subsubsection*{2) Introducing ``Reddish'' and ``Blueish'' Noise}
+\vspace*{-0.5em}
+
+The constraint that the power spectra of two noise colors
+(representing the bit values F and T) should sum up to white noise
+means that $w_F(f)^2 + w_T(f)^2 = 1$ for all frequencies.  There is a
+well-known pair of functions which fulfills this equation, namely the
+sine and cosine functions: $sin(\alpha)^2 + cos(\alpha)^2 = 1$. In
+other words, by shaping the frequency distribution of noise in a sinusoidal
+way, we get complementary noise colors, as is shown in Figure~\ref{fig:reddish_and_blueish}.
+
+\begin{figure}[ht]
+  \center
+  \vspace*{-1em}
+  \includegraphics[width=1.0\linewidth]{fig/noise-gallery-2.pdf}
+  \vspace*{-2.5em}
+  \caption{\em Comparison of reddish, white and blueish noise using
+    linear plots (upper row: power spectra; lower row: underlying
+    frequency distribution).}
+  \label{fig:reddish_and_blueish}
+\end{figure}
+
+\noindent We named the noise with the cosine-shaped frequency
+distribution ``reddish'' because it is heavier in low frequencies,
+and the sine-shaped one ``blueish'' as it leans toward blue noise.
+
+
+\vspace*{-0.5em}
+\subsubsection*{3) FFT-less Noise Shaping}
+\vspace*{-0.5em}
+
+A straight-forward way, nowadays, to create reddish and blueish noise
+is to (a) generate white noise as a series of random time-domain
+amplitude values, (b) transform this signal to the frequency domain
+with FFT, (c) apply the weights as specified, and (d) transforming
+back to a time-domain signal via the inverse FFT.
+
+However, there is a much simpler way to directly derive reddish
+and blueish noise from the time-domain samples of white noise, namely by
+summing and differencing two consecutive samples. What we do, in fact,
+is applying either a lowpass or a highpass filter.
+
+In the case of reddish noise we filter by computing the moving average
+{\em MA(2)} of white noise $wn$ as follows:
+
+\vskip 0.25em
+\centerline{\fbox{$reddish[i] = wn[i] + wn[i+1]$}}
+
+\vskip 0.25em
+\noindent The frequency response of a moving average filter can be
+found in introductory books to signal processing~\cite{1999SEGDSP}. If
+$M$ is the number of elements to be summed, the frequency response $H$
+is defined as
+
+\centerline{ $H(f) = \cfrac{1}{M} \,\, \cfrac{sin(\pi M f)}{sin(\pi f)}$, $f$ in the range $(0\ldots 0.5]$ }
+
+\vskip 0.25em\noindent
+We use $f = \cfrac{F}{f_s}$ which is the discrete frequency derived
+from the real frequency $F$ and the sampling frequency $f_s$. When
+inserting {\em M=2} into above equation and using the ``double-angle
+property'' $sin(2\alpha)=2sin(\alpha)cos(\alpha)$, we get the desired
+
+\vskip 0.25em
+\noindent{$w_{reddish}(f) = \cfrac{1}{2} \,\, \cfrac{2sin(\pi f)cos(\pi f)}{sin(\pi f)} = cos(\pi f)$}
+
+\vskip 0.5em
+\noindent By symmetry, when differencing white noise as follows
+
+\vskip 0.25em
+\centerline{\fbox{$blueish[i] = wn[i] - wn[i+1]$}}
+
+\vskip 0.25em
+\noindent we get the desired frequency response
+
+\vskip 0.25em
+\noindent $w_{blueish}(f) = sin(\pi f)$
+
+\vskip 0.25em
+We have thus shown that the low- and highpass filtering as expressed
+in the algorithms (highlighted by a surrounding box) produce
+the desired sinusoidal frequency distributions.
+
+\vspace*{-0.5em}
+\subsubsection*{4) FFT-less Noise Color Discrimination}
+\vspace*{-0.5em}
+
+A well-known paper on noise color identification is by Riley and
+Greenhall from 2004~\cite{2004NoiseId}. It shows how to derive, for an
+interval of $N$ values from a discrete times series, a value $r_1$
+that is indicative for a signal's dominant noise color. Riley and
+Greenhall looked at phase and (single) frequency data from clocks, but
+the approach also works for time-domain values. Their {\bf ``lag 1
+  autocorrelation''} computation, which is easy to implement, is given
+as
+
+\vskip 0.5em\noindent
+\centerline{
+  \fbox{$r_1 = \cfrac{\sum_{i=1}^{N-1} (x[i] - \bar{x})(x[i+1] - \bar{x})}
+             {\sum_{i=1}^{N} (x[i] - \bar{x})^2}$}
+             \hspace{0.25em} $\bar{x} = \cfrac{1}{N} \sum_{i=1}^{N} x[i]$
+}
+\vskip 0.5em
+
+The observation is that colored noise signals have different
+``self-similarities'', which is what $r_1$ captures. For example,
+white noise is only self-similar to itself: A copy of white noise that
+is shifted by any non-zero number of time steps will (ideally) have
+zero similarity to the unshifted version. Colored noise signals,
+however, have different self-similarities where it suffices to
+compared the signal with a copy of itself that is shifted by a single
+time step (``lag 1'').
+
+Pink noise is {\em more} self-similar than white noise (hence positive
+$r_1$ value) because the time-domain values don't differ much from
+sample to sample due to the dominance of low frequencies. Similarly,
+blue noise is {\em less} self-similar than white noise (negative $r_1$
+value) because consecutive sample values differ strongly due to the
+dominance of high frequencies.
+
+It turns out that Riley and Greenhall's ``identification signal'' $r_1$ 
+also works for noise colors that do not follow the $1/f^p$ frequency
+distribution, specifically for our reddish and blueish noise. As reported by
+Riley and Greenhall, 20 to 30 samples are sufficient to identify the
+dominant color.
+
+\vspace*{-0.5em}
+\subsubsection*{5) Evaluation}
+\vspace*{-0.5em}
+
+We implemented the described Noise Color Keying modulation with above
+FFT-less methods and verified its viability via simulation. For
+example, Figure~\ref{fig:r_1} shows the correspondence between the
+input bits (red) overlayed to the $r_1$ signal (blue) recovered after
+transmission over an AWGN channel.
+
+\begin{figure}[ht]
+  \center
+  \vspace*{-0.2em}
+  \includegraphics[width=0.9\linewidth]{fig/r_1-graph.png}
+  \vspace*{-0.8em}
+  \caption{\em Red: input to NCK modulator. Blue: retrieved autocorrelation value $r_1$ after traversing a noise channel.}
+  \label{fig:r_1}
+  \vspace*{-0.6em}
+\end{figure}
+
+In a more systematic way we also studied the performance under
+different SNR conditions, see Figure~\ref{fig:fer}. Unlike FSK or PSK,
+there is no sufficiently high SNR value above which transmission
+becomes virtually error-free: For any reasonable packet size there
+will be some flipped bits with very high probability. This means that
+NCK only can operate in conjunction with Forward Error Correction
+(FEC). In our evaluation we used 174-bit packets with FT8's LDPC
+encoding. The resulting curves show the usual FER behavior also found
+for other FEC schemas.
+
+\begin{figure}[ht]
+  \center
+  \vspace*{-0.1em}
+  \includegraphics[width=1.05\linewidth]{fig/nck-fer_vs_snr_vs_kr.png}
+  \vspace*{-2em}
+  \caption{\em Frame Error Rate vs SNR}
+  \label{fig:fer}
+  \vspace*{-1em}
+\end{figure}
+
+As expected, we observe a capacity limit that is dependent on the
+keying rate. A too high keying rate translates into too few sample
+values per symbol such that the $r1$ algorithm cannot identify the
+correct noise color. We further observed that lowering the keying rate
+allows to operate NCK in the sub-zero SNR range. The reason for this
+is that longer symbol times enable the $r_1$ algorithm to
+``accumulate'' enough noise such that its color becomes identifiable.
+
+\vspace*{-0.5em}
+\subsubsection*{6) Discussion}
+\vspace*{-0.5em}
+
+Noise Color Keying is less efficient (has higher $E_s/N_0$) than FSK
+where all energy is concentrated in single frequencies. This also
+means that FSK can be more reliably detected after traversing a noisy
+channel when compared to the set of randomly selected and spread out
+frequencies of colored noise. However, FSK is more vulnerable to
+birdies that will derail the recovery of single frequencies. Instead,
+NCK looks at the frequency distribution as a whole. Whether this NCK
+property is also helpful for coping with fading still needs to
+be investigated.
+
+% Pure speculation but perhaps worth some consideration: The simplicity
+% of NCK could enable its implementation inside integrated radio chips
+% like the SI4732.
+
+We point out that the $r_1$ autocorrelation signal can be used to
+track frequency shifts due to Doppler effects: Frequency drifts away
+from the NCK noise' center frequency result in shifting the $r_1$ curve up
+or down when observed over multiple symbol times. With a suitable
+lowpass filter, these shifts can be used to correct the receiver's
+center frequency.
+
+While above FER-vs-SNR evaluation was done for a full 2.5kHz noise
+signal, narrow-band NCK signals are also viable, as is shown in
+Figure~\ref{fig:example} for a 500Hz signal. In order to explore this
+path even further, we successfully demodulated a NCK signal that is
+just 2Hz wide, using a keying rate of 0.2 Baud and operating at 5dB
+SNR (in 2Hz). This is reminiscent of~\cite{EBNAUT} where, in one case,
+a 0.125Hz-wide signal at 0.125 Baud was sent over stable VLF paths and
+coherently demodulated despite the estimated transmit ERP being
+in the $\mu$Watt range. NCK is a non-coherent demodulation method and
+therefore less dependent on the channel's and the receiver's clock
+stability: Using such very narrow signals open up the possibility to
+use NCK for weak signal communications in HF and to potentially
+compete with JT9, JT65 and WSPR while using a simpler demodulation
+technique.
+
+But beforehand, the challenge of turning NCK into a packet radio
+format is to find robust frame detection and clock synchronization
+methods. FT8 spends more than 35\% of its time and energy to get this
+part right, as otherwise all demodulation is in vain. Suggestions are
+welcome and are hopefully as simple as the $r_1$ noise identification
+procedure.
+
+Source code (Python) and additional documentation for NCK can be found
+at \url{https://github.com/tschudin/NCK}.
+
+\begingroup
+\vskip -1em
+\renewcommand
+\refname{\bf\normalsize References\vskip -1em}
+\bibliographystyle{IEEEtran}
+\bibliography{refs}
+\endgroup
+
+\end{document}
+
+% eof
