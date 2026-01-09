@@ -19,7 +19,7 @@ NCK uses two distinct noise colors to encode bits while the
 traditional methods like ASK, FSK and PSK use a signal's amplitude,
 frequency or phase to this end. Specially crafted noise hues, called
 "reddish" and "blueish", were designed such that the signal's averaged
-power over time looks like white noise i.e., has a flat frequency
+power over time looks like white noise i.e., has a flat power
 distribution. This makes NCK a quite robust modulation technique as no
 frequency or phase constellation of the signal carries special
 significance - it's all encoded in the noise' hue.
@@ -153,5 +153,30 @@ reference: A simple "less-than-zero" detector yields the original data
 bits.
 
 ![NCK demo for 48 bits](img/nck-demo.png)
+
+
+## 6) "Noise Needles"
+
+NCK modulation is scalable: On can seamlessly move from a 2.5kHz
+signal to 500Hz or below - all one has to do is to adapt the keying
+rate accordingly. Invoking the demo tool with the following
+parameters
+
+```
+% ./demo-nck.py -b 2 -k 0.2 -l 174 -s 5
+```
+
+produces a 2Hz-"wide" NCK signal keyed at 0.2 Baud, which translates to
+symbols of 5sec length each. Thanks to the LDPC forward error correction
+from FT8, the 174 transmitted bits, wherefrom 10 were flipped while
+traversing the noisy channel, yield 91 correct payload bits:
+
+![NCK 2Hz "noise needle" terminal output](img/nck-2Hz-noise-needle.png)
+
+In a waterfall display, this signal is barely visible due to the
+limited resolution, yet the lag1-autocorrelation algorithm was able to
+successfully retrieve the transmitted information.
+
+![NCK 2Hz "noise needle" waterfall](img/nck-2Hz-noise-needle-waterfall.png)
 
 ---
