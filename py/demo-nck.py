@@ -10,6 +10,7 @@
 import argparse
 from datetime import datetime,UTC
 from ft8_coding import FT8_CODING
+from hamming84 import h84_encode, h84_decode, h84_data_from_code
 import matplotlib.pyplot as plt
 from matplotlib import transforms
 from ncklib import NCK
@@ -25,6 +26,8 @@ parser = argparse.ArgumentParser()
 parser.add_argument('-b', '--bw', type=int, default=500,
                           help="signal bandwidth in Hz (channel BW is 2700Hz)")
 parser.add_argument('-c', '--centerfreq', type=int, default=1250)
+parser.add_argument('-e', '--ecc', choices=['hamming84'], default=None,
+                          help="error correcting code: hamming84")
 parser.add_argument('-f', '--fs', type=int, default=12000,
                           help="sampling frequency in Hz")
 parser.add_argument('-k', '--kr', type=float, default=20,
@@ -44,6 +47,8 @@ parser.add_argument('-w', '--wav', action='store_true',
 parser.add_argument('-y', '--birdies', type=float, default=0)
 
 args = parser.parse_args(sys.argv[1:])
+if args.ecc == 'hamming84':
+    args.length = 4 * ((args.length + 3) // 4)
 print(args)
 
 nck = NCK(FS=args.fs, CF=args.centerfreq, BW=args.bw,
@@ -53,12 +58,18 @@ ft8 = FT8_CODING()
 
 LEN = args.length
 if LEN == 174: # apply FT8 encoding
-    bits = [x for x in np.random.randint(2,size=77)]
-    bits += ft8.crc14(bits)
-    bits = ft8.ldpc_encode(bits)
+    data = [x for x in np.random.randint(2, size=77)]
+    data += ft8.crc14(data)
+    bits = ft8.ldpc_encode(data)
     assert len(bits) == 174
 else:
-    bits = [ 0 if np.random.rand(1) < 0.5 else 1 for i in range(LEN) ]
+    data = np.random.randint(2, size=LEN)
+    if args.ecc == 'hamming84':
+        bits = sum([h84_encode(data[4*i:4*i+4]) for i in range(len(data)//4)],
+                   [])
+    else:
+        bits = [ x for x in data ]
+        
 audio = nck.modulate(bits)
 print(f"transmission time = {'%.1f'%(len(audio)/nck.FS)} sec")
 
@@ -164,44 +175,73 @@ ax.annotate('red: modulation input', [0,np.min(r1)], color='red')
 
 
 # --- print original bits and reception status to the terminal
+print(f"data= \033[0;33m{''.join([str(x) for x in data])}\033[0m",
+      f"({len(data)} bits)")
 bits = "".join([str(b) for b in bits])
-print(f"sent= {bits}")
+print(f"sent= {bits} ({len(bits)} bits)")
 ax.set_title(bits)
 
 msg = msg[:len(bits)]
-llr = [ -4.5 if b else 4.5 for b in msg ]
-msg = ''.join([str(b) for b in msg])
+msgstr = ''.join([str(b) for b in msg])
 err, s = 0, ''
 for i in range(len(bits)):
-    if bits[i] == msg[i]:
+    if bits[i] == msgstr[i]:
         s += "\033[32m"
     else:
         s += "\033[31m"
         err += 1
-    s += msg[i] + "\033[0m"
+    s += msgstr[i] + "\033[0m"
 
 if err == 0:
     print(f"rcvd= {s} (no bit errors)")
+    extr = None
+    if len(bits) == 174: # FT8 encoding
+        extr = bits[:91]
+    elif args.ecc == 'hamming84':
+        extr = sum([h84_data_from_code(msg[i*8:i*8+8]) \
+                                    for i in range(len(msg)//8) ], [])
+    if extr != None:
+        print(f"extr= \033[32m{''.join([str(x) for x in extr])}\033[0m",
+              "(no frame error)")
 else:
-    print(f"rcvd= {s} ({err} bit errors, {int(100*err/len(msg) + 0.9)}%)")
-
-if err > 0 and len(bits) == 174: # FT8 encoding
-    x, corr = ft8.ldpc_decode(llr, 100)
-    if x == 91:
-        corr = [ str(x) for x in corr ][:91]
-        bits = bits[:91]
+    print(f"rcvd= {s} ({err} bit errors, {int(100*err/len(msgstr) + 0.9)}%)")
+    if len(bits) == 174: # FT8 encoding
+        llr = [ -4.5 if b else 4.5 for b in msg ]
+        x, corr = ft8.ldpc_decode(llr, 100)
+        if x == 91:
+            extr = corr[:91]
+        else:
+            extr = msg[:91]
         err2, s = 0, ''
-        for i in range(len(bits)):
-            if bits[i] == corr[i]:
+        for i in range(len(data)):
+            if data[i] == extr[i]:
                 s += "\033[32m"
             else:
                 s += "\033[31m"
-                err2 ++ 1
-            s += corr[i] + "\033[0m"
+                err2 += 1
+            s += str(extr[i]) + "\033[0m"
         if err2 == 0:
             print(f"\033[0;93mcorr\033[0m= {s} (no frame error)")
         else:
-            print(f"corr= {s} ({err2} errors, {int(100*err2/len(bits)+0.9)}%)")
+            print(f"extr= {s} ({err2} bit errors, {int(100*err2/len(data)+0.9)}%)")
+    elif args.ecc == 'hamming84':
+        corr = []
+        for i in range(len(msg)//8):
+            ok, b4 = h84_decode(msg[i*8:i*8+8])
+            corr += b4
+        err2, s = 0, ''
+        for i in range(len(data)):
+            if data[i] == corr[i]:
+                s += "\033[32m"
+            else:
+                s += "\033[31m"
+                err2 += 1
+            s += str(corr[i]) + "\033[0m"
+        print(f"\033[0;93mcorr\033[0m= {s} ", end='')
+        if err2 == 0:
+            print(f"(no frame error)")
+        else:
+            print(f"({err2} errors, {int(100*err2/len(data)+0.9)}%)")
 
 now = f"{str(datetime.now(UTC))[:19]} UTC"
 if args.snr == '':
