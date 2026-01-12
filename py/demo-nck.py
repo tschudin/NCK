@@ -10,6 +10,7 @@
 import argparse
 from datetime import datetime,UTC
 from ft8_coding import FT8_CODING
+from golay24 import golay_encode, golay_decode
 from hamming84 import h84_encode, h84_decode, h84_data_from_code
 import matplotlib.pyplot as plt
 from matplotlib import transforms
@@ -28,7 +29,8 @@ parser.add_argument('-b', '--bw', type=int, default=500,
                                "(channel BW is 2700Hz). Default=500")
 parser.add_argument('-c', '--centerfreq', type=int, default=1250,
                           help=" Default=1250")
-parser.add_argument('-e', '--ecc', choices=['hamming84', 'FT8'], default=None,
+parser.add_argument('-e', '--ecc', choices=['FT8', 'golay24', 'hamming84'],
+                          default=None,
                           help="use error correcting coding. Default=None")
 parser.add_argument('-f', '--fs', type=int, default=12000,
                           help="sampling frequency in Hz. Default=12000")
@@ -49,10 +51,12 @@ parser.add_argument('-w', '--wav', action='store_true',
 parser.add_argument('-y', '--birdies', type=float, default=0)
 
 args = parser.parse_args(sys.argv[1:])
-if args.ecc == 'hamming84':
-    args.length = 4 * ((args.length + 3) // 4)
-elif args.ecc == 'FT8':
+if args.ecc == 'FT8':
     args.length = 174
+elif args.ecc == 'golay24':
+    args.length = 12 * ((args.length + 11) // 12)
+elif args.ecc == 'hamming84':
+    args.length = 4 * ((args.length + 3) // 4)
 print(args)
 
 nck = NCK(FS=args.fs, CF=args.centerfreq, BW=args.bw,
@@ -68,8 +72,13 @@ if args.ecc == 'FT8':
     assert len(bits) == 174
 else:
     data = np.random.randint(2, size=LEN)
-    if args.ecc == 'hamming84':
-        bits = sum([h84_encode(data[4*i:4*i+4]) for i in range(len(data)//4)],
+    if args.ecc == 'golay24':
+        bits = sum([golay_encode(data[12*i:12*i+12]) \
+                    for i in range(len(data)//12)],
+                   [])
+    elif args.ecc == 'hamming84':
+        bits = sum([h84_encode(data[4*i:4*i+4]) \
+                    for i in range(len(data)//4)],
                    [])
     else:
         bits = [ x for x in data ]
@@ -201,6 +210,8 @@ if err == 0:
     extr = None
     if args.ecc == 'FT8':
         extr = bits[:91]
+    elif args.ecc == 'golay24':
+        extr = bits[:12]
     elif args.ecc == 'hamming84':
         extr = sum([h84_data_from_code(msg[i*8:i*8+8]) \
                                     for i in range(len(msg)//8) ], [])
@@ -228,6 +239,23 @@ else:
             print(f"\033[0;93mcorr\033[0m= {s} (no frame error)")
         else:
             print(f"extr= {s} ({err2} bit errors, {int(100*err2/len(data)+0.9)}%)")
+    elif args.ecc == 'golay24':
+        corr = []
+        for i in range(len(msg)//24):
+            corr += golay_decode(msg[i*24:i*24+24])
+        err2, s = 0, ''
+        for i in range(len(data)):
+            if data[i] == corr[i]:
+                s += "\033[32m"
+            else:
+                s += "\033[31m"
+                err2 += 1
+            s += str(corr[i]) + "\033[0m"
+        print(f"\033[0;93mcorr\033[0m= {s} ", end='')
+        if err2 == 0:
+            print(f"(no frame error)")
+        else:
+            print(f"({err2} errors, {int(100*err2/len(data)+0.9)}%)")
     elif args.ecc == 'hamming84':
         corr = []
         for i in range(len(msg)//8):

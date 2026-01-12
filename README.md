@@ -62,6 +62,8 @@ The most relevant files are:
 Auxiliary files:
 
 - ```py/ft8_coding.py``` -- LDPC and CRC routines
+- ```py/golay24.py```    -- binary Golay FEC
+- ```py/hamming84.py```  -- extended Hamming(8,4) FEC
 - ```py/sp.py``` -- draws spectrogram for ```out.wav```, or some given file
 - ```py/mk_nck-hue_power_sum.py``` -- simulate blueish and reddish noise, show power sum
 - ```py/mk_nck-noise-gallery.py``` -- generates graphs for various noise colors
@@ -83,7 +85,7 @@ Auxiliary files:
 ```
 
 ```
-% ./demo-nck.py -b 10 -k 1 -e hamming84 -s 6  # very narrow signal, error correction, SNR=6dB
+% ./demo-nck.py -b 10 -k 1 -e golay24 -s 6    # very narrow signal, error correction, SNR=6dB
 ```
 
 ```
