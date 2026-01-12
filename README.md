@@ -51,7 +51,7 @@ symbols which improves the quality of the lag1-autocorrelation and
 therefore the accuracy of the demodulation.
 
 
-## 2) Files
+## 2) Files and Command Line Options
 
 The most relevant files are:
 
@@ -66,6 +66,29 @@ Auxiliary files:
 - ```py/mk_nck-hue_power_sum.py``` -- simulate blueish and reddish noise, show power sum
 - ```py/mk_nck-noise-gallery.py``` -- generates graphs for various noise colors
 - ```py/mk_nck-fer_vs_snr_vs_kr.py``` -- generates above FER-vs-SNR graph
+
+
+### 2.1) Examples of Command Line Options for ```demo-nck.py```
+
+```
+% ./demo-nck.py                               # default settings as a baseline at SNR=3dB
+```
+
+```
+% ./demo-nck.py -w                            # generate WAV file (incl the channell's AWGN noise)
+```
+
+```
+% ./demo-nck.py -b 2500 -k 100 -s 6           # very broad colored noise signal, SNR=6dB
+```
+
+```
+% ./demo-nck.py -b 10 -k 1 -e hamming84 -s 6  # very narrow signal, error correction, SNR=6dB
+```
+
+```
+% ./demo-nck.py -b 50 -k 5 -e FT8 -s 5        # FT8-style signal incl LDPC error correction, SNR=5dB (at 50Hz). Note the lack of packet framing
+```
 
 
 ## 3) Gallery of Colored Noise Types

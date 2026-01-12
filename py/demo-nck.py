@@ -24,22 +24,24 @@ import sys
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-b', '--bw', type=int, default=500,
-                          help="signal bandwidth in Hz (channel BW is 2700Hz)")
-parser.add_argument('-c', '--centerfreq', type=int, default=1250)
-parser.add_argument('-e', '--ecc', choices=['hamming84'], default=None,
-                          help="error correcting code: hamming84")
+                          help="signal bandwidth in Hz " + \
+                               "(channel BW is 2700Hz). Default=500")
+parser.add_argument('-c', '--centerfreq', type=int, default=1250,
+                          help=" Default=1250")
+parser.add_argument('-e', '--ecc', choices=['hamming84', 'FT8'], default=None,
+                          help="use error correcting coding. Default=None")
 parser.add_argument('-f', '--fs', type=int, default=12000,
-                          help="sampling frequency in Hz")
+                          help="sampling frequency in Hz. Default=12000")
 parser.add_argument('-k', '--kr', type=float, default=20,
-                          help="keying rate in Baud, can be smaller than 1")
+                          help="keying rate in Baud. Default=20. Can be a float and smaller than 1")
 parser.add_argument('-l', '--length', type=int, default=48,
-                          help="msg len in bits, default is 48." + \
-                               " Use 174 for FT8 comparison")
+                          help="payload len in bits. Default=48." + \
+                               " Is adusted depending on -ecc")
 parser.add_argument('-p', '--print', action='store_true',
                           help="generate PNG and PDF")
 parser.add_argument('-s', '--snr', type=str, default=3, metavar='dB',
                           help="SNR is specific to the signal's bandwidth." +\
-                               " Use '' for no noise")
+                               " Default=3. Use '' for no noise")
 parser.add_argument('-t', '--fft', action='store_true',
                           help="use FFT instead of our LPF,HPF")
 parser.add_argument('-w', '--wav', action='store_true',
@@ -49,6 +51,8 @@ parser.add_argument('-y', '--birdies', type=float, default=0)
 args = parser.parse_args(sys.argv[1:])
 if args.ecc == 'hamming84':
     args.length = 4 * ((args.length + 3) // 4)
+elif args.ecc == 'FT8':
+    args.length = 174
 print(args)
 
 nck = NCK(FS=args.fs, CF=args.centerfreq, BW=args.bw,
@@ -57,7 +61,7 @@ nck = NCK(FS=args.fs, CF=args.centerfreq, BW=args.bw,
 ft8 = FT8_CODING()
 
 LEN = args.length
-if LEN == 174: # apply FT8 encoding
+if args.ecc == 'FT8':
     data = [x for x in np.random.randint(2, size=77)]
     data += ft8.crc14(data)
     bits = ft8.ldpc_encode(data)
@@ -195,7 +199,7 @@ for i in range(len(bits)):
 if err == 0:
     print(f"rcvd= {s} (no bit errors)")
     extr = None
-    if len(bits) == 174: # FT8 encoding
+    if args.ecc == 'FT8':
         extr = bits[:91]
     elif args.ecc == 'hamming84':
         extr = sum([h84_data_from_code(msg[i*8:i*8+8]) \
@@ -205,7 +209,7 @@ if err == 0:
               "(no frame error)")
 else:
     print(f"rcvd= {s} ({err} bit errors, {int(100*err/len(msgstr) + 0.9)}%)")
-    if len(bits) == 174: # FT8 encoding
+    if args.ecc == 'FT8':
         llr = [ -4.5 if b else 4.5 for b in msg ]
         x, corr = ft8.ldpc_decode(llr, 100)
         if x == 91:
