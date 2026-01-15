@@ -157,8 +157,8 @@ class NCK:
             if self.CF >= self.BW:
                 # filter out band of interest (avoid mixing noise where it
                 # does not belong)
-                sos = signal.butter(4, [self.CF - 3*self.BW/4,
-                                        self.CF + 3*self.BW/4], 'pass',
+                sos = signal.butter(10, [self.CF - self.BW/2,
+                                        self.CF + self.BW/2], 'pass',
                                     fs=self.FS,  output='sos')
                 rcvd = signal.sosfiltfilt(sos, rcvd)
             else:
