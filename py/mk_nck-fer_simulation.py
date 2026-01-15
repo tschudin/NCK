@@ -146,7 +146,7 @@ def one_round():
     rcvd = np.array( [x for x in audio] ) # this is the audio we received
     duration = len(rcvd) / nck.FS
     # demodulate
-    bband, r1, msg = nck.demodulate(rcvd, msgstart=nck.FS)
+    bband, r1, msg, _ = nck.demodulate(rcvd, msgstart=nck.FS)
 
     msg = msg[:len(bits)]
     msgstr = ''.join([str(b) for b in msg])
@@ -228,8 +228,8 @@ for kr in args.krl:
             line = f"kr={args.kr} snr={args.snr} rounds={args.rounds} fer={'%e' % (frame_err_sum/args.rounds)}"
             print(line)
 
-        simu['data'][str(kr)][str(snr)] =  line
         if args.persist != None:
+            simu['data'][str(kr)][str(snr)] =  line
             simu["cfg"]["utc"] = str(datetime.now(UTC))[:19]
             with open(args.persist, 'w') as f:
                 json.dump(simu, f)

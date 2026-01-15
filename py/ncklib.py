@@ -195,12 +195,12 @@ class NCK:
 
         # translate given offset to new sampling frequency (2*BW)
         msgstart = int(2 * self.BW * msgstart / self.FS)
-        _r1 = r1[msgstart:]
 
         # sample the r1 signal (=decode)
-        msg = [ 1 if _r1[w*i] < 0 else 0 for i in range(len(_r1)//w) ]
+        samplePos = [ msgstart + w*i for i in range((len(r1)-msgstart)//w) ]
+        msg = [ 1 if r1[p] < 0 else 0 for p in samplePos ]
 
-        return (rcvd, r1, msg)
+        return (rcvd, r1, msg, samplePos)
 
     pass
 

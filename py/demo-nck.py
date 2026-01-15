@@ -162,7 +162,9 @@ ax.set_yticks([])
 ax.set_xticks([])
 
 duration = len(rcvd) / nck.FS
-bband, r1, msg = nck.demodulate(rcvd, msgstart=nck.FS)
+bband, r1, msg, pos = nck.demodulate(rcvd, msgstart=nck.FS)
+
+r1 = r1[:-int(2 * args.bw / args.kr)]
 
 # --- 2
 ax = row2.subplots(1, 1)
@@ -175,13 +177,18 @@ ax = row3.subplots(1, 1)
 ax.plot(duration * np.arange(len(r1))/len(r1), r1, 'b')
 ax.set_ylabel("lag 1 autocorrelation")
 
+# show sampling positions as thin green bars
+w = int(2 * args.bw / args.kr) # width (samples per symbol)
+pos = np.array(pos)[:-1]
+ax.bar(duration * pos/len(r1), r1[pos], width=1/duration/w, color='lightgreen')
+
 # generate curve of original bit values, to be overlayed on recovered r1 signal
-w = int(2 * args.bw / args.kr) # samples per symbol
 sent = ([0] * (2*args.bw//w)) + \
        [-1 if b else 1 for b in bits] + \
        ([0] * (2*args.bw//w + 2))
 sent = np.array( [ sent[int((x+w/2)/w)] for x in range(len(r1)) ] )
 ax.plot(duration * np.arange(len(sent))/len(sent), sent * 0.075, 'r')
+ax.axhline(0, color='black', linewidth=0.5)
 ax.annotate('"0"', [duration-0.005,0.1-0.025], color='red')
 ax.annotate('"1"', [duration-0.005,-0.1-0.025], color='red')
 ax.annotate('red: modulation input', [0,np.min(r1)], color='red')
