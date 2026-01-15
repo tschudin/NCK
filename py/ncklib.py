@@ -188,7 +188,7 @@ class NCK:
         r1 = [ lag1autocorr(x) for x in rcvd ][2*w:]
         # smooth according to sender's keying rate
         sos = signal.butter(2, self.KR, 'low',
-                            fs=self.BW,  output='sos')
+                            fs=2*self.BW,  output='sos')
         r1 = signal.sosfiltfilt(sos, r1)
         if invert:
             r1 *= -1
