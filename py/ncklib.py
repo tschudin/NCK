@@ -63,6 +63,10 @@ def lag1autocorr_naive(v): # close to the r1 formula, but slow
 
 class NCK:
 
+    REDDISH = -1
+    WHITE   =  0
+    BLUEISH = +1
+    
     def __init__(self, FS=12000, CF=1500, BW=1000, KR=75, USE_FFT=False):
         self.FS  = FS
         self.CF  = CF
@@ -72,20 +76,21 @@ class NCK:
 
     def _noise(self, hue):
         # generate "two symbols worth" of samples of "noise with a hue"
-        #   where hue is in ['reddish', 'white', 'blueish']
+        #   where hue is a float in in the interval [-1..+1]: -1 stands
+        #   for 'reddish', 0 for 'white', and +1 for 'blueish']
 
         SPS2 = int(2 * 2 * self.BW / self.KR) # samples per symbol, doubled
         wn = 2 * np.random.rand(SPS2) - 1
 
-        if hue == 'white':
+        if hue == self.WHITE:
             return wn
 
         if self.USE_FFT:
             fd = np.fft.fft(wn)
-            if hue == 'reddish':
+            if hue == self.REDDISH:
                 for i in range(len(fd)):
                     fd[i] *= np.abs(np.cos(np.pi * i / len(fd)))
-            elif hue == 'blueish':
+            elif hue == self.BLUEISH:
                 for i in range(len(fd)):
                     fd[i] *= np.sin(np.pi * i / len(fd))
             else:
@@ -98,12 +103,14 @@ class NCK:
             def hpf(v): # our high pass filter
                 return np.array([ v[i] - v[i+1] for i in range(len(v)-1) ])
 
-            if hue == 'reddish':
+            if hue == self.REDDISH:
                 n = lpf(wn)
-            elif hue == 'blueish':
+            elif hue == self.BLUEISH:
                 n = hpf(wn)
             else:
-                assert False
+                r = lpf(wn)
+                b = hpf(wn)
+                n = (self.BLUEISH - hue) * r + (self.REDDISH - hue) * b
         return n / np.max(np.abs(n))
 
     def modulate(self, bits):
@@ -114,7 +121,7 @@ class NCK:
         for b in bits:
             if self.CF != 0: # mixing will flip the frequenc range
                 b = 1 - b
-            sym = self._noise(['reddish','blueish'][b])
+            sym = self._noise([self.REDDISH,self.BLUEISH][b])
             sig = np.hstack((sig, sym[:w]))
 
         if self.CF != 0:

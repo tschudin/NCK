@@ -179,7 +179,7 @@ ax.set_ylabel("lag 1 autocorrelation")
 
 # show sampling positions as thin green bars
 w = int(2 * args.bw / args.kr) # width (samples per symbol)
-pos = np.array(pos)[:-1]
+pos = np.array(pos)[:len(bits)]
 ax.bar(duration * pos/len(r1), r1[pos], width=1/duration/w, color='lightgreen')
 
 # generate curve of original bit values, to be overlayed on recovered r1 signal
