@@ -398,19 +398,20 @@ class FT8_CODING:
         # turn rawg into gen.
         assert len(self.rawg) == 83
 
-        hex2 = { hex(i)[2]:i for i in range(16) }
-        for e in self.rawg:
-            row = np.zeros(91, dtype=np.int32)
-            for i,c in enumerate(e):
-                x = hex2[c]
-                for j in range(0, 4):
-                    ind = i*4 + (3-j)
-                    if ind >= 0 and ind < 91:
-                        if (x & (1 << j)) != 0:
-                            row[ind] = 1
-                        else:
-                            row[ind] = 0
-            self.gen.append(row)
+        if len(self.gen) == 0:
+            hex2 = { hex(i)[2]:i for i in range(16) }
+            for e in self.rawg:
+                row = np.zeros(91, dtype=np.int32)
+                for i,c in enumerate(e):
+                    x = hex2[c]
+                    for j in range(0, 4):
+                        ind = i*4 + (3-j)
+                        if ind >= 0 and ind < 91:
+                            if (x & (1 << j)) != 0:
+                                row[ind] = 1
+                            else:
+                                row[ind] = 0
+                self.gen.append(row)
 
         # turn gen[] into a systematic array by prepending
         # a 91x91 identity matrix.
