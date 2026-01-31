@@ -22,8 +22,9 @@
 import argparse
 from datetime import datetime,UTC
 from ft8_coding import FT8_CODING
-from golay24 import golay_encode, golay_decode
+from golay24 import   golay_encode, golay_decode
 from hamming84 import h84_encode, h84_decode, h84_data_from_code
+from ldpc96 import    l96_encode, l96_decode, l96_data_from_code
 import json
 import ncklib
 import numpy as np
@@ -36,8 +37,8 @@ parser = argparse.ArgumentParser()
 parser.add_argument('-b', '--bw', type=int, default=500,
                           help="signal bandwidth in Hz (channel BW is 2700Hz)")
 parser.add_argument('-c', '--centerfreq', type=int, default=0)
-parser.add_argument('-e', '--ecc', choices=['FT8', 'golay24', 'hamming84'],
-                          default=None,
+parser.add_argument('-e', '--ecc', default=None,
+                          choices=['ft8', 'golay24', 'hamming84', 'ldpc96'],
                           help="use error correcting coding. Default=None")
 parser.add_argument('-f', '--fs', type=int, default=6000,
                           help="sampling frequency in Hz")
@@ -68,7 +69,7 @@ if args.persist != None:
         args.overhead = simu['cfg']['olength'] # overhead length
         args.rounds   = simu['cfg']['rounds']
     else:
-        if args.ecc == 'FT8':
+        if args.ecc == 'ft8':
             args.length = 91
             args.overhead = 174 - 91
         elif args.ecc == 'golay24':
@@ -77,6 +78,9 @@ if args.persist != None:
         elif args.ecc == 'hamming84':
             args.length = 4 * ((args.length + 3) // 4)
             args.overhead = args.length
+        elif args.ecc == 'ldpc96':
+            args.length = 50
+            args.overhead = 96 - 50
         else:
             args.overhead = 0
         print(args)
@@ -97,19 +101,22 @@ if args.persist != None:
             json.dump(simu, f)
 
 
-ft8 = FT8_CODING()
-
 def one_round():
     nck = ncklib.NCK(FS=args.fs, CF=args.centerfreq, BW=args.bw,
                      KR=args.kr, USE_FFT=args.fft)
 
-    if args.ecc == 'FT8':
+    if args.ecc == 'ft8':
+        ft8 = FT8_CODING()
         data = [x for x in np.random.randint(2,size=77)]
         data += ft8.crc14(data)
-        bits = ft8.ldpc_encode(data)
+        bits = ft8.ldpc_encode(np.array(data))
         assert len(bits) == 174
+    elif args.ecc == 'ldpc96':
+        data = [x for x in np.random.randint(2,size=50)]
+        bits = l96_encode(data)
+        assert len(bits) == 96
     else:
-        data = np.random.randint(2, size=args.length)
+        data = [x for x in np.random.randint(2, size=args.length)]
         if args.ecc == 'golay24':
             bits = sum([golay_encode(data[12*i:12*i+12]) \
                         for i in range(len(data)//12)], [])
@@ -117,7 +124,7 @@ def one_round():
             bits = sum([h84_encode(data[4*i:4*i+4]) \
                         for i in range(len(data)//4)], [])
         else:
-            bits = [ x for x in data ]
+            bits = data
 
     audio = nck.modulate(bits)
 
@@ -125,8 +132,9 @@ def one_round():
     audioLen = len(audio)
     pwrS = np.sum(audio*audio)     # signal power
 
-    # pad with 1sec silence on each side
-    audio = np.hstack((np.zeros(nck.FS),audio,np.zeros(nck.FS)))
+    # pad with silence on each side
+    PADLEN = 5
+    audio = np.hstack((np.zeros(PADLEN*nck.FS),audio,np.zeros(PADLEN*nck.FS)))
 
     noise = 2 * np.random.rand(len(audio)) - 1
     pwrN = np.sum(noise*noise)     # noise power for full channel BW (args.FS/2)
@@ -146,7 +154,7 @@ def one_round():
     rcvd = np.array( [x for x in audio] ) # this is the audio we received
     duration = len(rcvd) / nck.FS
     # demodulate
-    bband, r1, msg, _ = nck.demodulate(rcvd, msgstart=nck.FS)
+    bband, r1, msg, pos = nck.demodulate(rcvd, msgstart=PADLEN*nck.FS)
 
     msg = msg[:len(bits)]
     msgstr = ''.join([str(b) for b in msg])
@@ -156,9 +164,10 @@ def one_round():
             err += 1
 
     frame_err = 0
-    if args.ecc == 'FT8':
+    if args.ecc == 'ft8':
         llr = [ -4.5 if b else 4.5 for b in msg ]
         x, corr = ft8.ldpc_decode(llr, 100)
+        # corr = ft8.ldpc_extract(corr)
         if x != 91:
             frame_err += 1
     elif args.ecc == 'golay24':
@@ -174,6 +183,15 @@ def one_round():
         for i in range(len(msg)//8):
             ok, b4 = h84_decode(msg[i*8:i*8+8])
             corr += b4
+        for i in range(len(data)):
+            if data[i] != corr[i]:
+                frame_err += 1
+                break
+    elif args.ecc == 'ldpc96':
+        pos = np.array(pos) + int(PADLEN* 2*args.bw)
+        cw = l96_decode([-8*r1[p] for p in pos])
+        # cw = l96_decode([4 if b else -4 for b in msg])
+        corr = l96_data_from_code(cw)
         for i in range(len(data)):
             if data[i] != corr[i]:
                 frame_err += 1
