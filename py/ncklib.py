@@ -3,7 +3,7 @@
 # ncklib.py
 # noise color keying (NCK)
 
-# (C) Dec 2025 <christian.tschudin@unibas.ch> HB9HUH/K6CFT
+# (C) Dec 2025 - Jan 2026 <christian.tschudin@unibas.ch> HB9HUH/K6CFT
 # SW released under the MIT license
 
 import numpy as np
@@ -67,17 +67,18 @@ class NCK:
     WHITE   =  0
     BLUEISH = +1
     
-    def __init__(self, FS=12000, CF=1500, BW=1000, KR=75, USE_FFT=False):
-        self.FS  = FS
-        self.CF  = CF
-        self.BW  = BW
-        self.KR  = KR
+    def __init__(self, FS=12000, CF=1500, BW=1000, KR=75, M=2, USE_FFT=False):
+        self.FS  = FS  # sampling freq, in Hz
+        self.CF  = CF  # center freq, in Hz
+        self.BW  = BW  # bandwidth, in Hz
+        self.KR  = KR  # keying rate, in Baud
+        self.M   = M   # number of levels per symbol
         self.USE_FFT = USE_FFT
 
     def _noise(self, hue):
         # generate "two symbols worth" of samples of "noise with a hue"
-        #   where hue is a float in in the interval [-1..+1]: -1 stands
-        #   for 'reddish', 0 for 'white', and +1 for 'blueish']
+        #   where hue is a float in the interval [-1..+1]: -1 stands
+        #   for 'reddish', 0 for 'white', and +1 for 'blueish'
 
         SPS2 = int(2 * 2 * self.BW / self.KR) # samples per symbol, doubled
         wn = 2 * np.random.rand(SPS2) - 1
@@ -108,21 +109,35 @@ class NCK:
             elif hue == self.BLUEISH:
                 n = hpf(wn)
             else:
-                r = lpf(wn)
-                b = hpf(wn)
-                n = (self.BLUEISH - hue) * r + (self.REDDISH - hue) * b
+                rn = lpf(wn)
+                bn = hpf(wn)
+                f = abs(self.BLUEISH - hue) / 2
+                n = np.sqrt(f) * rn + np.sqrt(1 - f) * bn # flat power spectr
         return n / np.max(np.abs(n))
 
-    def modulate(self, bits):
+    def modulate(self, symlst):
         # returns timedomain signal at selected FS, no padding
+        # symlst: vector of index values in [0..M-1]
     
         w = int(2 * self.BW / self.KR)  # samples per symbol (when FS=2*BW)
         sig = np.zeros(0)
-        for b in bits:
-            if self.CF != 0: # mixing will flip the frequenc range
-                b = 1 - b
-            sym = self._noise([self.REDDISH,self.BLUEISH][b])
-            sig = np.hstack((sig, sym[:w]))
+        if self.M == 2:
+            for b in symlst:
+                if self.CF != 0: # mixing will flip the frequenc range
+                    b = 1 - b
+                sym = self._noise([self.REDDISH,self.BLUEISH][b])
+                sig = np.hstack((sig, sym[:w]))
+        elif self.M == 3:
+            for i,t in enumerate(symlst):
+                sym = self._noise([self.REDDISH,0,self.BLUEISH][t])
+                sig = np.hstack((sig, sym[:w]))
+        elif self.M == 4:
+            for i,s in enumerate(symlst):
+                sym = self._noise([self.REDDISH, self.REDDISH/3,
+                                   self.BLUEISH/3, self.BLUEISH][s])
+                sig = np.hstack((sig, sym[:w]))
+        else:
+            assert False
 
         if self.CF != 0:
             if self.CF >= self.BW:
@@ -152,11 +167,12 @@ class NCK:
         # upsample to final FS
         return signal.resample(sig, int(self.FS * len(sig) / (2*tmp_fs)))
 
-    def demodulate(self, rcvd, msgstart=0):
-        # returns a 3-tuple: (sig,r1,bits)
-        # where sig  is the extracted baseband signal (time domain)
-        #       r1   is the smoothed lag1 autocorrelate signal
-        #       bits is the recovered bit vector
+    def demodulate(self, rcvd, msgstart=0, msglen=None):
+        # returns a 3-tuple: (sig,r1,symlst,samplepos)
+        # where sig     extracted baseband signal (time domain)
+        #       r1      smoothed lag1 autocorrelate signal
+        #       symlst  recovered list of symbols
+        #       sp      positions where r1 was sampled
 
         invert = False
         if self.CF != 0: # mix down to baseband
@@ -204,8 +220,44 @@ class NCK:
         msgstart = int(2 * self.BW * msgstart / self.FS)
 
         # sample the r1 signal (=decode)
-        samplePos = [ msgstart + w*i for i in range((len(r1)-msgstart)//w) ]
-        msg = [ 1 if r1[p] < 0 else 0 for p in samplePos ]
+        if msglen == None:
+            relevant = r1[msgstart:]
+        else:
+            relevant = r1[msgstart:msgstart+msglen]
+
+        samplePos = [ w*i for i in range(len(relevant)//w) ]
+        mi,mx = np.min(relevant), np.max(relevant)
+        if self.M == 2:
+            zero = mx + mi
+            msg = [ 1 if relevant[p] < zero else 0 for p in samplePos ]
+        elif self.M == 3:
+            mx = 0.9 * max(-mi, mx)
+            mi = -mx
+            d = (mx - mi) / 3
+            msg = []
+            for p in samplePos:
+                if relevant[p] < mi+d:
+                    msg.append(0)
+                elif relevant[p] < mx-d:
+                    msg.append(1)
+                else:
+                    msg.append(2)
+        elif self.M == 4:
+            mx = 0.9 * max(-mi, mx)
+            mi = -mx
+            d = (mx - mi) / 4
+            msg = []
+            for p in samplePos:
+                if relevant[p] < mi+d:
+                    msg.append(0)
+                elif relevant[p] < 0:
+                    msg.append(1)
+                elif relevant[p] < mx-d:
+                    msg.append(2)
+                else:
+                    msg.append(3)
+        elif:
+            assert False
 
         return (rcvd, r1, msg, samplePos)
 
