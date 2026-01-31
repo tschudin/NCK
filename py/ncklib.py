@@ -120,7 +120,9 @@ class NCK:
         # symlst: vector of index values in [0..M-1]
     
         w = int(2 * self.BW / self.KR)  # samples per symbol (when FS=2*BW)
-        sig = np.zeros(0)
+        sym = self._noise(self.WHITE)[:w] # ramp up (raised cosine white noise)
+        sym *= 0.5 * (1 - np.cos(np.pi * np.arange(w)/w))
+        sig = sym
         if self.M == 2:
             for b in symlst:
                 if self.CF != 0: # mixing will flip the frequenc range
@@ -138,6 +140,9 @@ class NCK:
                 sig = np.hstack((sig, sym[:w]))
         else:
             assert False
+        sym = self._noise(self.WHITE)[:w] # ramp down (raised cosine white n.)
+        sym *= 0.5 * (np.cos(np.pi * np.arange(w)/w) - 1)
+        sig = np.hstack((sig, sym))
 
         if self.CF != 0:
             if self.CF >= self.BW:

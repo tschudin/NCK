@@ -182,10 +182,10 @@ ax.set_xticks([])
 
 duration = len(rcvd) / nck.FS # overall recording time, in sec
 bband, r1, msg, pos = nck.demodulate(rcvd,
-                                     msgstart=PADLEN*nck.FS,
-                                     msglen = int(len(symlst) * 2 * args.bw / args.kr))
-
-r1 = r1[:-int(2 * args.bw / args.kr) + 1]
+                         msgstart=PADLEN*nck.FS,
+                         msglen = int((len(symlst)+2) * 2 * args.bw / args.kr))
+# msglen is adjusted for the two ramp up/down symbols
+r1 = r1[:-int(2 * args.bw / args.kr)]
 
 # --- 2
 ax = row2.subplots(1, 1)
@@ -200,7 +200,7 @@ ax.set_ylabel("lag 1 autocorrelation")
 
 # show sampling positions as thin green bars
 w = int(2 * args.bw / args.kr) # width (samples per symbol)
-pos = np.array(pos)[:len(symlst)] + int(2 * args.bw * PADLEN)
+pos = np.array(pos)[1:1+len(symlst)] + int(2 * args.bw * PADLEN)
 ax.bar(duration * pos/len(r1), r1[pos], width=1/args.kr/5, color='lightgreen')
 if args.multi > 2:
     mi, mx = 0.9*np.min(r1), 0.9*np.max(r1)
@@ -212,27 +212,30 @@ if args.multi > 2:
 
 # generate curve of original sym values, to be overlayed on recovered r1 signal
 if args.multi == 2:
-    sent = ([0] * int(PADLEN*args.kr)) + \
+    # pads plus ramp up/down symbols
+    sent = ([0] * int(PADLEN*args.kr + 1)) + \
            [-1 if b else 1 for b in symlst] + \
-           ([0] * int(PADLEN*args.kr + 2))
+           ([0] * int(PADLEN*args.kr + 3))
     ax.annotate('"0"', [duration-0.005,0.1-0.025], color='red')
     ax.annotate('"1"', [duration-0.005,-0.1-0.025], color='red')
 elif args.multi == 3:
-    sent = [0] * (PADLEN*2*args.bw//w) + [s-1 for s in symlst] + \
-           [0] * (PADLEN*2*args.bw//w)
+    sent = [0] * int(PADLEN*args.kr + 1) + [s-1 for s in symlst] + \
+           [0] * int(PADLEN*args.kr + 3)
     ax.annotate('"2"', [duration-0.005, 2*mx/3-0.025], color='lightgreen')
     ax.annotate('"1"', [duration-0.005,-0.025],        color='lightgreen')
     ax.annotate('"0"', [duration-0.005, 2*mi/3-0.025], color='lightgreen')
 elif args.multi == 4:
-    sent = [0] * (PADLEN*2*args.bw//w) + [2*s/3-1 for s in symlst] + \
-           [0] * (PADLEN*2*args.bw//w)
+    sent = [0] * int(PADLEN*args.kr + 1) + [2*s/3-1 for s in symlst] + \
+           [0] * int(PADLEN*args.kr + 3)
     ax.annotate('"3"', [duration-0.005,3*mx/4-0.025],  color='lightgreen')
     ax.annotate('"2"', [duration-0.005,1*mx/4-0.025],  color='lightgreen')
     ax.annotate('"1"', [duration-0.005,1*mi/4-0.025],     color='lightgreen')
     ax.annotate('"0"', [duration-0.005,3*mi/4-0.025], color='lightgreen')
 
-sent = np.array( [ sent[int((x+w/2)/w)] for x in range(len(r1)) ] )
-ax.plot(duration * np.arange(len(sent))/len(sent), sent * 0.075, 'r')
+print('x', len(sent), len(r1), len(r1)/w)
+sent = np.array( [ sent[int(x/w)] for x in range(len(r1)-2*w) ] )
+ax.plot((duration - 2/args.kr) * np.arange(len(sent))/len(sent),
+        sent * 0.075, 'r')
 ax.axhline(0, color='black', linewidth=0.5)
 ax.annotate('red: modulation input', [0,np.min(r1)], color='red')
 
@@ -260,7 +263,7 @@ def colordiff(ref, act):
         s += str(act[i]) + "\033[0m"
     return err, s
 
-msg = msg[:len(symlst)]
+msg = msg[1:1+len(symlst)]
 msgstr = ''.join([str(sym) for sym in msg])
 err, s = colordiff(symlst, msgstr)
 
