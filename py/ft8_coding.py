@@ -551,10 +551,8 @@ class FT8_CODING:
             ll = llr174 + e0 + e1 + e2
             # log likelihood > 0 => bit=0.
             cw = [ 1 if x < 0 else 0 for x in ll ]
-            if self.ldpc_check(cw):
-                # success! It's a systematic code, collect the bits
-                decoded = cw[0:91]
-                return [ 91, decoded ]
+            if self.ldpc_check(cw): # success!
+                return (91, cw)
 
             # messages from bits to checks.
             for j in range(0, 3):
@@ -572,7 +570,10 @@ class FT8_CODING:
                 m[self.mnx[:,j]-1, range(0,174)] = ll
 
         # could not decode.
-        return [ self.ldpc_parity(cw), np.array([]) ]
+        return [ self.ldpc_parity(cw), cw ]
+
+    def ldpc_extract(self, codeword):
+        return codeword[:91]
 
 # ---------------------------------------------------------------------------
 

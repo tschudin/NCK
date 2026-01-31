@@ -256,7 +256,7 @@ class NCK:
                     msg.append(2)
                 else:
                     msg.append(3)
-        elif:
+        else:
             assert False
 
         return (rcvd, r1, msg, samplePos)
