@@ -61,9 +61,11 @@ The most relevant files are:
 
 Auxiliary files:
 
-- ```py/ft8_coding.py``` -- LDPC and CRC routines
-- ```py/golay24.py```    -- binary Golay FEC
+- ```py/ft8_coding.py``` -- LDPC and CRC routines, 77 payload bits (FT8)
+- ```py/golay24.py```    -- binary Golay-24 FEC
 - ```py/hamming84.py```  -- extended Hamming(8,4) FEC
+- ```py/ldpc96.py```     -- N=96/K=50 LDPC, 50 payload bits (WSPR)
+- ```py/ldpc96_cfg.py``` -- matrices for above coding
 - ```py/sp.py``` -- draws spectrogram for ```out.wav```, or some given file
 - ```py/mk_nck-hue_power_sum.py``` -- simulate blueish and reddish noise, show power sum
 - ```py/mk_nck-noise-gallery.py``` -- generates graphs for various noise colors
@@ -89,7 +91,7 @@ Auxiliary files:
 ```
 
 ```
-% ./demo-nck.py -b 50 -k 5 -e FT8 -s 5        # FT8-style signal incl LDPC error correction, SNR=5dB (at 50Hz). Note the lack of packet framing
+% ./demo-nck.py -b 50 -k 5 -e ft8 -s 5        # FT8-style signal incl LDPC error correction, SNR=5dB (at 50Hz). Note the lack of packet framing
 ```
 
 
