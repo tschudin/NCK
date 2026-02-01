@@ -126,7 +126,8 @@ else:
     symlst = [ 2*bits[2*i] + bits[2*i+1] for i in range(len(bits)//2) ]
         
 audio = nck.modulate(symlst)
-xmit_time = len(audio)/nck.FS
+xmit_time = len(audio)/nck.FS # includes the two ramp up/down symbols
+sym_time = xmit_time / (1 + len(symlst) + 1)
 
 ''' # test for two parallel NCK signals (with -k 100 -b 1200 -c 1700)
 nck2 = NCK(args=args, FS=args.fs, CF=600,
@@ -209,13 +210,14 @@ bband, r1, msg, pos = nck.demodulate(rcvd,
                          msgstart=PADLEN*nck.FS,
                          msglen = int((len(symlst)+2) * 2 * args.bw / args.kr))
 # msglen is adjusted for the two ramp up/down symbols
-r1 = r1[:-int(2 * args.bw / args.kr)]
+r1 = r1[:-int(2 * args.bw / args.kr)] # cut last samples (1sym)
 
 # --- 2
 ax = row2.subplots(1, 1)
 ax.plot(duration * np.arange(len(bband))/len(bband), bband)
 ax.set_ylabel("extracted subband")
 
+duration -= 1/args.kr # wrt to r1
 
 # --- 3
 ax = row3.subplots(1, 1)
@@ -225,7 +227,8 @@ ax.set_ylabel("lag 1 autocorrelation")
 # show sampling positions as thin green bars
 w = int(2 * args.bw / args.kr) # width (samples per symbol)
 pos = np.array(pos)[1:1+len(symlst)] + int(2 * args.bw * PADLEN)
-ax.bar(duration * pos/len(r1), r1[pos], width=1/args.kr/5, color='lightgreen')
+
+# generate curve of original sym values, to be overlayed on recovered r1 signal
 if args.arity > 2:
     mi, mx = 0.9*np.min(r1), 0.9*np.max(r1)
     mx = 0.9 * max(-mi, mx)
@@ -233,33 +236,34 @@ if args.arity > 2:
     d = (mx - mi) / args.arity
     for i in range(args.arity+1):
         ax.axhline(y=mi + i*d, color='lightgreen', linestyle='dashed')
-
-# generate curve of original sym values, to be overlayed on recovered r1 signal
 if args.arity == 2:
-    # pads plus ramp up/down symbols
-    sent = ([0] * int(PADLEN*args.kr + 1)) + \
-           [-1 if b else 1 for b in symlst] + \
-           ([0] * int(PADLEN*args.kr + 3))
+    # add ramp up/down symbols
+    sent = [0] +  [-1 if b else 1 for b in symlst] + [0]
     ax.annotate('"0"', [duration-0.005,0.1-0.025], color='red')
     ax.annotate('"1"', [duration-0.005,-0.1-0.025], color='red')
 elif args.arity == 3:
-    sent = [0] * int(PADLEN*args.kr + 1) + [s-1 for s in symlst] + \
-           [0] * int(PADLEN*args.kr + 3)
+    sent = [0] + [s-1 for s in symlst] + [0]
     ax.annotate('"2"', [duration-0.005, 2*mx/3-0.025], color='lightgreen')
     ax.annotate('"1"', [duration-0.005,-0.025],        color='lightgreen')
     ax.annotate('"0"', [duration-0.005, 2*mi/3-0.025], color='lightgreen')
 elif args.arity == 4:
-    sent = [0] * int(PADLEN*args.kr + 1) + [2*s/3-1 for s in symlst] + \
-           [0] * int(PADLEN*args.kr + 3)
-    ax.annotate('"3"', [duration-0.005,3*mx/4-0.025],  color='lightgreen')
-    ax.annotate('"2"', [duration-0.005,1*mx/4-0.025],  color='lightgreen')
-    ax.annotate('"1"', [duration-0.005,1*mi/4-0.025],     color='lightgreen')
+    sent = [0] + [2*s/3-1 for s in symlst] + [0]
+    ax.annotate('"3"', [duration-0.005,3*mx/4-0.025], color='lightgreen')
+    ax.annotate('"2"', [duration-0.005,1*mx/4-0.025], color='lightgreen')
+    ax.annotate('"1"', [duration-0.005,1*mi/4-0.025], color='lightgreen')
     ax.annotate('"0"', [duration-0.005,3*mi/4-0.025], color='lightgreen')
 
-print('x', len(sent), len(r1), len(r1)/w)
-sent = np.array( [ sent[int(x/w)] for x in range(len(r1)-2*w) ] )
-ax.plot((duration - 2/args.kr) * np.arange(len(sent))/len(sent),
-        sent * 0.075, 'r')
+if args.barker != None:
+    barker_start = PADLEN + (1 + (len(symlst)-args.barker)//2 - 0.5) * sym_time
+    rect = plt.Rectangle((barker_start, -0.2), args.barker * sym_time, 0.4,
+                         facecolor='#c0c0c0')
+    ax.add_patch(rect)
+
+ax.bar(duration * pos/len(r1), r1[pos], width=1/args.kr/5, color='lightgreen')
+
+mod_input = np.array( [ sent[x//w] for x in range(len(sent)*w) ] )
+mod_pos = np.arange(len(mod_input))/len(mod_input) * len(sent) - 0.5
+ax.plot(PADLEN +  mod_pos * sym_time, mod_input * 0.075, 'r')
 ax.axhline(0, color='black', linewidth=0.5)
 ax.annotate('red: modulation input', [0,np.min(r1)], color='red')
 
