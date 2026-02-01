@@ -233,8 +233,7 @@ class NCK:
         samplePos = [ w*i for i in range(len(relevant)//w) ]
         mi,mx = np.min(relevant), np.max(relevant)
         if self.M == 2:
-            zero = mx + mi
-            msg = [ 1 if relevant[p] < zero else 0 for p in samplePos ]
+            msg = [ 1 if relevant[p] < 0 else 0 for p in samplePos ]
         elif self.M == 3:
             mx = 0.9 * max(-mi, mx)
             mi = -mx
