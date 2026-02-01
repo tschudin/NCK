@@ -29,14 +29,20 @@ barker = {
     11: [0,0,0,1,1,1,0,1,1,0,1],
     13: [0,0,0,0,0,1,1,0,0,1,0,1,0],
 
-    14: [0,0,0,0,0,0,1,1,1,1,0,0,1,1], # doubled syms of barker-7
-    22: [0,0,0,0,0,0,1,1,1,1,1,1,0,0,1,1,1,1,0,0,1,1],
-    26: [0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,1,1,0,0,1,1,0,0],
+    # doubled syms (half the keying rate)
+    14: [0,0,0,0,0,0,1,1,1,1,0,0,1,1], 
+    22: [0,0,0,0,0,0,1,1,1,1,1,1,0,0,1,1,1,1,0,0,1,1], # <== 2nd best
+    26: [0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,1,1,0,0,1,1,0,0], # <== good!
 
-    21: [0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,0,0,0,1,1,1], # triple syms of barker-7
+    # tripled syms (third of keying rate)
+    21: [0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,0,0,0,1,1,1], # <== too weak
     33: [0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,0,0,0,1,1,1,1,1,1,0,0,0,1,1,1],
     39: [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,
          0,0,0,0,0,0,1,1,1,0,0,0,1,1,1,0,0,0],
+    # 21: [0,0,0,1,1,0,1,0,0,0,1,1,0,1,0,0,0,1,1,0,1] # 3x7, not good
+
+    # note: high w needs less redundancy (14 ok for w=50,
+    # while 26, 33 or 39 required for w=15)
 }
 
 # ---------------------------------------------------------------------------
@@ -254,7 +260,39 @@ elif args.arity == 4:
     ax.annotate('"0"', [duration-0.005,3*mi/4-0.025], color='lightgreen')
 
 if args.barker != None:
+    # search Barker sequence
+    bas = []
+    xcr = []
+    for b in barker[args.barker]:
+        bas += [-1 if b else 1] * w
+    mx = 0
+    mxpos = -1
+    for i in range(len(r1) - len(bas)):
+        s = 0
+        for j in range(len(bas)):
+            s += bas[j] * r1[i+j]
+        xcr.append(s)
+        if s > mx:
+            mx = s
+            mxpos = i
+    xcr = np.array(xcr)
+
     barker_start = PADLEN + (1 + (len(symlst)-args.barker)//2 - 0.5) * sym_time
+
+    duration2 = duration * (len(r1) - len(bas)) / len(r1)
+    ax.plot(duration2 * np.arange(len(xcr))/len(xcr), 1. + xcr/500)
+    ax.annotate('Barker crosscorrelation', [0,0.75], color='black')
+
+    if mxpos >= 0:
+        barker_detected = mxpos/w * sym_time
+        print(f"Barker found at {np.round(barker_detected,5)}, ", end='')
+        print(f"real pos: {np.round(barker_start,5)}:   ", end='')
+        print(f"{np.round(barker_start - barker_detected,5)} vs T={np.round(sym_time,5)} ", end='')
+        err = np.round(100 * (barker_start - barker_detected) / sym_time)
+        print(f"({abs(int(err))} %)")
+        ax.axvline(barker_detected, linestyle='dashed', linewidth=0.5)
+
+    # draw background reactangle where Barker sequence really is
     rect = plt.Rectangle((barker_start, -0.2), args.barker * sym_time, 0.4,
                          facecolor='#c0c0c0')
     ax.add_patch(rect)
