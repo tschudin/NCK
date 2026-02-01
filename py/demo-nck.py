@@ -24,11 +24,30 @@ import sys
 
 
 # ---------------------------------------------------------------------------
+barker = {
+     7: [0,0,0,1,1,0,1],
+    11: [0,0,0,1,1,1,0,1,1,0,1],
+    13: [0,0,0,0,0,1,1,0,0,1,0,1,0],
+
+    14: [0,0,0,0,0,0,1,1,1,1,0,0,1,1], # doubled syms of barker-7
+    22: [0,0,0,0,0,0,1,1,1,1,1,1,0,0,1,1,1,1,0,0,1,1],
+    26: [0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,1,1,0,0,1,1,0,0],
+
+    21: [0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,0,0,0,1,1,1], # triple syms of barker-7
+    33: [0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,0,0,0,1,1,1,1,1,1,0,0,0,1,1,1],
+    39: [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,
+         0,0,0,0,0,0,1,1,1,0,0,0,1,1,1,0,0,0],
+}
+
+# ---------------------------------------------------------------------------
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-b', '--bw', type=int, default=500,
                           help="signal bandwidth in Hz " + \
                                "(channel BW is 2700Hz). Default=500")
+parser.add_argument('-B', '--barker', type=int, default=None,
+                          choices=[7,11,13,14,22,26,21,33,39],
+                          help="insert Barker seq. Default=None")
 parser.add_argument('-c', '--centerfreq', type=int, default=1250,
                           help=" Default=1250")
 parser.add_argument('-e', '--ecc', default=None,
@@ -41,7 +60,7 @@ parser.add_argument('-k', '--kr', type=float, default=20,
 parser.add_argument('-l', '--length', type=int, default=48,
                           help="payload len in bits. Default=48." + \
                                " Is adusted depending on -ecc")
-parser.add_argument('-m', '--multi', choices=['2','3','4'], default='2',
+parser.add_argument('-M', '--arity', type=int, choices=[2,3,4], default=2,
                           help="# of distinguished noise levels, default=2")
 parser.add_argument('-p', '--print', action='store_true',
                           help="generate PNG and PDF")
@@ -63,19 +82,20 @@ elif args.ecc == 'hamming84':
     args.length = 4 * ((args.length + 3) // 4)
 elif args.ecc == 'ldpc96': # WSPR payload
     args.length = 50
-args.multi = int(args.multi)
 args.w = int(2 * args.bw / args.kr) # width (r1 samples per symbol, >25 is good)
 
 print(args)
+if args.barker != None:
+    assert args.arity == 2
 
 nck = NCK(FS=args.fs, CF=args.centerfreq, BW=args.bw,
-          KR=args.kr, M=args.multi, USE_FFT=args.fft)
+          KR=args.kr, M=args.arity, USE_FFT=args.fft)
 
 data = [x for x in np.random.randint(2, size=args.length)]
 if args.ecc == 'ft8':
     ft8 = FT8_CODING()
     data += ft8.crc14(data)
-    bits = ft8.ldpc_encode(data)
+    bits = [x for x in ft8.ldpc_encode(data)]
     assert len(bits) == 174
 elif args.ecc == 'golay24':
     bits = sum([golay_encode(data[12*i:12*i+12]) \
@@ -89,9 +109,13 @@ elif args.ecc == 'ldpc96': # N=96, K=50 (v=3,c=6 ldpc)
 else:
     bits = data
 
-if args.multi == 2:
-    symlst = bits
-elif args.multi == 3:
+if args.arity == 2:
+    if args.barker != None:
+        i = len(bits)//2
+        symlst = bits[:i] + barker[args.barker] + bits[i:]
+    else:
+        symlst = bits
+elif args.arity == 3:
     # map 3 bits to 2 ternary digits
     assert len(bits) % 3 == 0
     grps = [ bits[3*i:3*i+3] for i in range(len(bits)//3) ]
@@ -202,29 +226,29 @@ ax.set_ylabel("lag 1 autocorrelation")
 w = int(2 * args.bw / args.kr) # width (samples per symbol)
 pos = np.array(pos)[1:1+len(symlst)] + int(2 * args.bw * PADLEN)
 ax.bar(duration * pos/len(r1), r1[pos], width=1/args.kr/5, color='lightgreen')
-if args.multi > 2:
+if args.arity > 2:
     mi, mx = 0.9*np.min(r1), 0.9*np.max(r1)
     mx = 0.9 * max(-mi, mx)
     mi = -mx
-    d = (mx - mi) / args.multi
-    for i in range(args.multi+1):
+    d = (mx - mi) / args.arity
+    for i in range(args.arity+1):
         ax.axhline(y=mi + i*d, color='lightgreen', linestyle='dashed')
 
 # generate curve of original sym values, to be overlayed on recovered r1 signal
-if args.multi == 2:
+if args.arity == 2:
     # pads plus ramp up/down symbols
     sent = ([0] * int(PADLEN*args.kr + 1)) + \
            [-1 if b else 1 for b in symlst] + \
            ([0] * int(PADLEN*args.kr + 3))
     ax.annotate('"0"', [duration-0.005,0.1-0.025], color='red')
     ax.annotate('"1"', [duration-0.005,-0.1-0.025], color='red')
-elif args.multi == 3:
+elif args.arity == 3:
     sent = [0] * int(PADLEN*args.kr + 1) + [s-1 for s in symlst] + \
            [0] * int(PADLEN*args.kr + 3)
     ax.annotate('"2"', [duration-0.005, 2*mx/3-0.025], color='lightgreen')
     ax.annotate('"1"', [duration-0.005,-0.025],        color='lightgreen')
     ax.annotate('"0"', [duration-0.005, 2*mi/3-0.025], color='lightgreen')
-elif args.multi == 4:
+elif args.arity == 4:
     sent = [0] * int(PADLEN*args.kr + 1) + [2*s/3-1 for s in symlst] + \
            [0] * int(PADLEN*args.kr + 3)
     ax.annotate('"3"', [duration-0.005,3*mx/4-0.025],  color='lightgreen')
@@ -242,30 +266,43 @@ ax.annotate('red: modulation input', [0,np.min(r1)], color='red')
 # --- print original bits and reception status to the terminal
 print(f"data= \033[0;93m{''.join([str(x) for x in data])}\033[0m",
       f"({len(data)} bits)")
-if args.multi != 2:
+if args.arity != 2:
     print(f"encd= {''.join([str(x) for x in bits])}",
           f"({len(bits)} bits)")
 
 symlst = "".join([str(b) for b in symlst])
-print(f"sent= {symlst} ({len(symlst)} symbols, in {'%.1f'%xmit_time} sec)")
+if args.barker != None:
+    i = (len(symlst) - args.barker) // 2
+    s = symlst[:i]+ '.'+ symlst[i:i+args.barker]+ '.'+ symlst[i+args.barker:]
+else:
+    s = symlst
+print(f"sent= {s} ({len(symlst)} symbols, in {'%.1f'%xmit_time} sec)")
 
 ax.set_title(symlst)
 
-def colordiff(ref, act):
+def colordiff(ref, act, barker=None):
     err = 0
     s = ''
+    if barker != None:
+        i = (len(ref)-barker) // 2
+        barker = [ i, i+barker ]
+    else:
+        barker = [ len(ref), -1 ]
     for i in range(len(ref)):
+        if i in barker:
+            s += '.'
         if ref[i] == act[i]:
             s += "\033[32m"
         else:
             s += "\033[31m"
-            err += 1
+            if i < barker[0] or i > barker[1]:
+                err += 1
         s += str(act[i]) + "\033[0m"
     return err, s
 
 msg = msg[1:1+len(symlst)]
 msgstr = ''.join([str(sym) for sym in msg])
-err, s = colordiff(symlst, msgstr)
+err, s = colordiff(symlst, msgstr, barker=args.barker)
 
 print(f"rcvd= {s} ", end='')
 if err == 0:
@@ -273,15 +310,15 @@ if err == 0:
 else:
     print(f"({err} symbol errors, {int(100*err/len(msgstr) + 0.9)}%)")
 
-if args.multi == 2:
+if args.arity == 2:
     recovered = msg
 else:
-    if args.multi == 3:
+    if args.arity == 3:
         vals = [ min(7,3 * msg[2*i] + msg[2*i+1]) for i in range(len(msg)//2) ]
         recovered = sum([ [v//4, (v%4)//2, v%2] for v in vals], [])
         err, s = colordiff(bits, recovered)
         print(f"extr= {s}", end='')
-    elif args.multi == 4:
+    elif args.arity == 4:
         recovered = ''.join([bin(4+s)[-2:] for s in msg])
         recovered = [int(x) for x in recovered]
         err, s = colordiff(bits, recovered)
@@ -291,11 +328,22 @@ else:
     else:
         print(f" (no bit errors)")
 
+if args.barker != None:
+    i = (len(recovered) - args.barker) // 2
+    recovered_wo_barker = recovered[:i] + recovered[i+args.barker:]
+else:
+    recovered_wo_barker = recovered
+
 if args.ecc == 'ft8':
-    llr = [ -4.5 if b else 4.5 for b in recovered ]
+    llr = [ -4.5 if b else 4.5 for b in recovered_wo_barker ]
     # llr = [ -8 * r1[p] for p in pos ]
     x, corr = ft8.ldpc_decode(llr, 100)
-    err, s = colordiff([int(x) for x in symlst], corr)
+    if args.barker != None:
+        i = len(corr) // 2
+        corr2 = corr[:i] + recovered[i:i+args.barker] + corr[i:]
+    else:
+        corr2 = corr
+    err, s = colordiff([int(x) for x in symlst], corr2, args.barker)
     print(f"corr= {s} ", end='')
     if err == 0:
         print("(no symbol errors)")
@@ -305,19 +353,28 @@ if args.ecc == 'ft8':
     err, s = colordiff(data, extr)
 elif args.ecc == 'golay24':
     extr = []
-    for i in range(len(recovered)//24):
-        extr += golay_decode(recovered[i*24:i*24+24])
+    for i in range(len(recovered_wo_barker)//24):
+        extr += golay_decode(recovered_wo_barker[i*24:i*24+24])
     err, s = colordiff(data, extr)
 elif args.ecc == 'hamming84':
     extr = []
-    for i in range(len(recovered)//8):
-        _, b4 = h84_decode(recovered[i*8:i*8+8])
+    for i in range(len(recovered_wo_barker)//8):
+        _, b4 = h84_decode(recovered_wo_barker[i*8:i*8+8])
         extr += b4
     err, s = colordiff(data, extr)
     extr = recovered
 elif args.ecc == 'ldpc96':
-    corr = l96_decode([-8*r1[p] for p in pos])
-    err, s = colordiff([int(x) for x in symlst], corr)
+    llr = [ -8 * r1[p] for p in pos ]
+    if args.barker != None:
+        i = (len(llr) - args.barker) // 2
+        llr = llr[:i] + llr[i+args.barker:]
+    corr = l96_decode(llr)
+    if args.barker != None:
+        i = len(corr) // 2
+        corr2 = corr[:i] + recovered[i:i+args.barker] + corr[i:]
+    else:
+        corr2 = corr
+    err, s = colordiff([int(x) for x in symlst], corr2, args.barker)
     print(f"corr= {s} ", end='')
     if err == 0:
         print("(no symbol errors)")
