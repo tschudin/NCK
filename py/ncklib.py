@@ -61,12 +61,43 @@ def lag1autocorr_naive(v): # close to the r1 formula, but slow
 
 # ---------------------------------------------------------------------------
 
+class INTERLEAVE:
+
+    def __init__(self, N): # mostly copied from WSPR
+        map = [None] * N
+        unmap = [None] * N
+        P = 0
+        while P < N:
+            for I in range(256):
+                J = 0
+                for _ in range(8):
+                    J = (J << 1) | (I & 0x01)
+                    I >>= 1
+                if J < N:
+                    # J = (J + 43) % N  # this is where we differ
+                    map[P] = J
+                    assert unmap[J] == None
+                    unmap[J] = P
+                    P += 1
+        self.m = map
+        self.rm = unmap
+
+    def map(self, lst):
+        return [ lst[self.m[i]] for i in range(len(lst)) ]
+
+    def unmap(self, lst):
+        return [ lst[self.rm[i]] for i in range(len(lst)) ]
+
+    pass
+
+# ---------------------------------------------------------------------------
+
 class NCK:
 
     REDDISH = -1
     WHITE   =  0
     BLUEISH = +1
-    
+
     def __init__(self, FS=12000, CF=1500, BW=1000, KR=75, M=2, USE_FFT=False):
         self.FS  = FS  # sampling freq, in Hz
         self.CF  = CF  # center freq, in Hz
@@ -106,8 +137,10 @@ class NCK:
 
             if hue == self.REDDISH:
                 n = lpf(wn)
+                # n = np.sin(2 * np.pi * SPS2/4/2 * np.arange(SPS2)/SPS2)
             elif hue == self.BLUEISH:
                 n = hpf(wn)
+                # n = np.sin(2 * np.pi * 3*SPS2/4/2 * np.arange(SPS2)/SPS2)
             else:
                 rn = lpf(wn)
                 bn = hpf(wn)

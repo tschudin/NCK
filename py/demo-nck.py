@@ -12,10 +12,11 @@ from datetime import datetime,UTC
 from ft8_coding import FT8_CODING
 from golay24 import   golay_encode, golay_decode
 from hamming84 import h84_encode, h84_decode, h84_data_from_code
+import json
 from ldpc96 import    l96_encode, l96_decode, l96_data_from_code
 import matplotlib.pyplot as plt
 from matplotlib import transforms
-from ncklib import NCK
+from ncklib import INTERLEAVE, NCK
 import numpy as np
 import pylab
 import scipy.io.wavfile
@@ -61,6 +62,8 @@ parser.add_argument('-e', '--ecc', default=None,
                           help="use error correcting coding. Default=None")
 parser.add_argument('-f', '--fs', type=int, default=6000,
                           help="sampling frequency in Hz. Default=6000")
+parser.add_argument('-i', '--interleave', action='store_true',
+                          help="enable interleaving. Default: False")
 parser.add_argument('-k', '--kr', type=float, default=20,
                           help="keying rate in Baud. Default=20. Can be a float and smaller than 1")
 parser.add_argument('-l', '--length', type=int, default=48,
@@ -91,6 +94,7 @@ elif args.ecc == 'ldpc96': # WSPR payload
 args.w = int(2 * args.bw / args.kr) # width (r1 samples per symbol, >25 is good)
 
 print(args)
+
 if args.barker != None:
     assert args.arity == 2
 
@@ -115,6 +119,18 @@ elif args.ecc == 'ldpc96': # N=96, K=50 (v=3,c=6 ldpc)
 else:
     bits = data
 
+print(f"data= \033[0;93m{''.join([str(x) for x in data])}\033[0m",
+      f"({len(data)} bits)")
+
+if args.ecc != None:
+    print(f"encd= {''.join([str(x) for x in bits])}")
+
+if args.interleave:
+    interleave = INTERLEAVE(len(bits))
+    bits_orig = bits
+    bits = interleave.map(bits)
+    print(f"itlv= {''.join([str(x) for x in bits])}")
+
 if args.arity == 2:
     if args.barker != None:
         i = len(bits)//2
@@ -130,7 +146,7 @@ elif args.arity == 3:
 else:
     assert len(bits) % 2 == 0
     symlst = [ 2*bits[2*i] + bits[2*i+1] for i in range(len(bits)//2) ]
-        
+
 audio = nck.modulate(symlst)
 xmit_time = len(audio)/nck.FS # includes the two ramp up/down symbols
 sym_time = xmit_time / (1 + len(symlst) + 1)
@@ -181,6 +197,18 @@ if args.wav:
     audio = audio.astype('int16')
     FNAME = 'out.wav'
     scipy.io.wavfile.write(FNAME, nck.FS, audio)
+    print(f"--> {FNAME}")
+    j = {}
+    for k in ['bw', 'barker', 'centerfreq', 'ecc', 'fs',
+              'kr', 'length', 'arity', 'snr', 'w']:
+        j[k] = args.__dict__[k]
+    j['data'] = ''.join([str(b) for b in data])
+    j['sent'] = ''.join([str(b) for b in symlst])
+    j['duration'] = xmit_time
+    j['utc'] = str(datetime.now(UTC))[:19]
+    FNAME = 'out.json'
+    with open(FNAME, 'w') as f:
+        f.write(json.dumps(j, indent=2))
     print(f"--> {FNAME}")
 
 # --- create three plots
@@ -281,13 +309,14 @@ if args.barker != None:
 
     duration2 = duration * (len(r1) - len(bas)) / len(r1)
     ax.plot(duration2 * np.arange(len(xcr))/len(xcr), 1. + xcr/500)
-    ax.annotate('Barker crosscorrelation', [0,0.75], color='black')
+    ax.annotate(f'Barker "{args.barker}" crosscorrelation',
+                [0,0.75], color='black')
 
     if mxpos >= 0:
         barker_detected = mxpos/w * sym_time
         print(f"Barker found at {np.round(barker_detected,5)}, ", end='')
         print(f"real pos: {np.round(barker_start,5)}:   ", end='')
-        print(f"{np.round(barker_start - barker_detected,5)} vs T={np.round(sym_time,5)} ", end='')
+        print(f"d={np.round(barker_start - barker_detected,5)} vs T={np.round(sym_time,5)} ", end='')
         err = np.round(100 * (barker_start - barker_detected) / sym_time)
         print(f"({abs(int(err))} %)")
         ax.axvline(barker_detected, linestyle='dashed', linewidth=0.5)
@@ -305,12 +334,7 @@ ax.plot(PADLEN +  mod_pos * sym_time, mod_input * 0.075, 'r')
 ax.axhline(0, color='black', linewidth=0.5)
 ax.annotate('red: modulation input', [0,np.min(r1)], color='red')
 
-# --- print original bits and reception status to the terminal
-print(f"data= \033[0;93m{''.join([str(x) for x in data])}\033[0m",
-      f"({len(data)} bits)")
-if args.arity != 2:
-    print(f"encd= {''.join([str(x) for x in bits])}",
-          f"({len(bits)} bits)")
+# --- print reception status to the terminal
 
 symlst = "".join([str(b) for b in symlst])
 if args.barker != None:
@@ -318,6 +342,7 @@ if args.barker != None:
     s = symlst[:i]+ '.'+ symlst[i:i+args.barker]+ '.'+ symlst[i+args.barker:]
 else:
     s = symlst
+
 print(f"sent= {s} ({len(symlst)} symbols, in {'%.1f'%xmit_time} sec)")
 
 ax.set_title(symlst)
@@ -376,16 +401,20 @@ if args.barker != None:
 else:
     recovered_wo_barker = recovered
 
+if args.interleave != None:
+    recovered_wo_barker = interleave.unmap(recovered_wo_barker)
+    err, s = colordiff(bits_orig, recovered_wo_barker)
+    print(f"vlti= {s} ", end='')
+    if err == 0:
+        print("(no symbol errors)")
+    else:
+        print(f"({err} symbol errors, {int(100*err/len(bits_orig) + 0.9)}%)")
+
 if args.ecc == 'ft8':
     llr = [ -4.5 if b else 4.5 for b in recovered_wo_barker ]
     # llr = [ -8 * r1[p] for p in pos ]
     x, corr = ft8.ldpc_decode(llr, 100)
-    if args.barker != None:
-        i = len(corr) // 2
-        corr2 = corr[:i] + recovered[i:i+args.barker] + corr[i:]
-    else:
-        corr2 = corr
-    err, s = colordiff([int(x) for x in symlst], corr2, args.barker)
+    err, s = colordiff(bits_orig, corr)
     print(f"corr= {s} ", end='')
     if err == 0:
         print("(no symbol errors)")
@@ -410,13 +439,10 @@ elif args.ecc == 'ldpc96':
     if args.barker != None:
         i = (len(llr) - args.barker) // 2
         llr = llr[:i] + llr[i+args.barker:]
+    if args.interleave != None:
+        llr = interleave.unmap(llr)
     corr = l96_decode(llr)
-    if args.barker != None:
-        i = len(corr) // 2
-        corr2 = corr[:i] + recovered[i:i+args.barker] + corr[i:]
-    else:
-        corr2 = corr
-    err, s = colordiff([int(x) for x in symlst], corr2, args.barker)
+    err, s = colordiff(bits_orig, corr)
     print(f"corr= {s} ", end='')
     if err == 0:
         print("(no symbol errors)")
