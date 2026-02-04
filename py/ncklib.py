@@ -180,8 +180,8 @@ class NCK:
         if self.CF != 0:
             if self.CF >= self.BW:
                 # increase FS (to cut off at CF+BW/2, eliminates mirror image)
-                tmp_fs = self.CF + self.BW//2
-                sig = signal.resample(sig, len(sig) * tmp_fs // self.BW)
+                tmp_fs = self.CF + self.BW/2
+                sig = signal.resample(sig, int(len(sig) * tmp_fs / self.BW))
                 # transpose baseband to CF
                 sig *= np.cos(2 * np.pi * tmp_fs * \
                               (np.arange(len(sig)) / (2*tmp_fs)))
@@ -241,7 +241,7 @@ class NCK:
         # apply lowpass filter at BW boundary
         rcvd = signal.resample(rcvd, int(2*self.BW * len(rcvd) / self.FS))
         rcvd /= np.max(np.abs(rcvd))
-        
+
         w = int(2 * self.BW / self.KR) # samples per symbol
         rcvd = np.hstack( ([0.01]*w, rcvd, [0.01]*w) )
         lag1autocorr_init(w)
