@@ -154,7 +154,7 @@ class NCK:
     
         w = int(2 * self.BW / self.KR)  # samples per symbol (when FS=2*BW)
         sym = self._noise(self.WHITE)[:w] # ramp up (raised cosine white noise)
-        sym *= 0.5 * (1 - np.cos(np.pi * np.arange(w)/w))
+        sym *= 0.5 * (1 - np.cos(np.pi * np.arange(w)/w)) / np.sqrt(2)
         sig = sym
         if self.M == 2:
             for b in symlst:
@@ -174,7 +174,7 @@ class NCK:
         else:
             assert False
         sym = self._noise(self.WHITE)[:w] # ramp down (raised cosine white n.)
-        sym *= 0.5 * (np.cos(np.pi * np.arange(w)/w) - 1)
+        sym *= 0.5 * (np.cos(np.pi * np.arange(w)/w) + 1) / np.sqrt(2)
         sig = np.hstack((sig, sym))
 
         if self.CF != 0:
