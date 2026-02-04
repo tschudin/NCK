@@ -49,7 +49,7 @@ barker = {
 # ---------------------------------------------------------------------------
 
 parser = argparse.ArgumentParser()
-parser.add_argument('-b', '--bw', type=int, default=500,
+parser.add_argument('-b', '--bw', type=float, default=500,
                           help="signal bandwidth in Hz " + \
                                "(channel BW is 2700Hz). Default=500")
 parser.add_argument('-B', '--barker', type=int, default=None,
@@ -118,18 +118,18 @@ elif args.ecc == 'ldpc96': # N=96, K=50 (v=3,c=6 ldpc)
     assert len(bits) == 96
 else:
     bits = data
+bits_orig = bits # after encoding but before interleaving
 
 print(f"data= \033[0;93m{''.join([str(x) for x in data])}\033[0m",
       f"({len(data)} bits)")
 
 if args.ecc != None:
-    print(f"encd= {''.join([str(x) for x in bits])}")
+    print(f"encd= {''.join([str(x) for x in bits])} ({len(bits)} bits)")
 
 if args.interleave:
     interleave = INTERLEAVE(len(bits))
-    bits_orig = bits
     bits = interleave.map(bits)
-    print(f"itlv= {''.join([str(x) for x in bits])}")
+    print(f"itlv= {''.join([str(x) for x in bits])} ({len(bits)} bits)")
 
 if args.arity == 2:
     if args.barker != None:
@@ -211,6 +211,15 @@ if args.wav:
         f.write(json.dumps(j, indent=2))
     print(f"--> {FNAME}")
 
+symlststr = "".join([str(b) for b in symlst])
+if args.barker != None:
+    i = (len(symlststr) - args.barker) // 2
+    s = symlststr[:i] + '.' + symlststr[i:i+args.barker]+ '.' + \
+        symlststr[i+args.barker:]
+else:
+    s = symlststr
+print(f"sent= {s} ({len(symlststr)} symbols, in {'%.1f'%xmit_time} sec)")
+
 # --- create three plots
 fig = plt.figure(figsize=(6.5, 8))
 row1, row2, row3 = fig.subfigures(3, 1, height_ratios=[1, 1, 1])
@@ -243,8 +252,8 @@ duration = len(rcvd) / nck.FS # overall recording time, in sec
 bband, r1, msg, pos = nck.demodulate(rcvd,
                          msgstart=PADLEN*nck.FS,
                          msglen = int((len(symlst)+2) * 2 * args.bw / args.kr))
-# msglen is adjusted for the two ramp up/down symbols
-r1 = r1[:-int(2 * args.bw / args.kr)] # cut last samples (1sym)
+# above msglen arg: is adjusted for the two ramp up/down symbols
+r1 = r1[:-int(2 * args.bw / args.kr)] # cut last samples (1sym) with wild swings
 
 # --- 2
 ax = row2.subplots(1, 1)
@@ -257,10 +266,6 @@ duration -= 1/args.kr # wrt to r1
 ax = row3.subplots(1, 1)
 ax.plot(duration * np.arange(len(r1))/len(r1), r1, 'b')
 ax.set_ylabel("lag 1 autocorrelation")
-
-# show sampling positions as thin green bars
-w = int(2 * args.bw / args.kr) # width (samples per symbol)
-pos = np.array(pos)[1:1+len(symlst)] + int(2 * args.bw * PADLEN)
 
 # generate curve of original sym values, to be overlayed on recovered r1 signal
 if args.arity > 2:
@@ -292,7 +297,7 @@ if args.barker != None:
     bas = []
     xcr = []
     for b in barker[args.barker]:
-        bas += [-1 if b else 1] * w
+        bas += [-1 if b else 1] * args.w
     mx = 0
     mxpos = -1
     for i in range(len(r1) - len(bas)):
@@ -313,7 +318,7 @@ if args.barker != None:
                 [0,0.75], color='black')
 
     if mxpos >= 0:
-        barker_detected = mxpos/w * sym_time
+        barker_detected = mxpos/args.w * sym_time
         print(f"Barker found at {np.round(barker_detected,5)}, ", end='')
         print(f"real pos: {np.round(barker_start,5)}:   ", end='')
         print(f"d={np.round(barker_start - barker_detected,5)} vs T={np.round(sym_time,5)} ", end='')
@@ -326,26 +331,19 @@ if args.barker != None:
                          facecolor='#c0c0c0')
     ax.add_patch(rect)
 
+# show sampling positions as thin green bars
+pos = np.array(pos)[1:1+len(symlst)] + int(2 * args.bw * PADLEN)
 ax.bar(duration * pos/len(r1), r1[pos], width=1/args.kr/5, color='lightgreen')
 
-mod_input = np.array( [ sent[x//w] for x in range(len(sent)*w) ] )
+mod_input = np.array( [ sent[x//args.w] for x in range(len(sent)*args.w) ] )
 mod_pos = np.arange(len(mod_input))/len(mod_input) * len(sent) - 0.5
 ax.plot(PADLEN +  mod_pos * sym_time, mod_input * 0.075, 'r')
 ax.axhline(0, color='black', linewidth=0.5)
 ax.annotate('red: modulation input', [0,np.min(r1)], color='red')
 
+ax.set_title(symlststr)
+
 # --- print reception status to the terminal
-
-symlst = "".join([str(b) for b in symlst])
-if args.barker != None:
-    i = (len(symlst) - args.barker) // 2
-    s = symlst[:i]+ '.'+ symlst[i:i+args.barker]+ '.'+ symlst[i+args.barker:]
-else:
-    s = symlst
-
-print(f"sent= {s} ({len(symlst)} symbols, in {'%.1f'%xmit_time} sec)")
-
-ax.set_title(symlst)
 
 def colordiff(ref, act, barker=None):
     err = 0
@@ -367,9 +365,9 @@ def colordiff(ref, act, barker=None):
         s += str(act[i]) + "\033[0m"
     return err, s
 
-msg = msg[1:1+len(symlst)]
+msg = msg[1:1+len(symlst)]  # ignore rampup symbol
 msgstr = ''.join([str(sym) for sym in msg])
-err, s = colordiff(symlst, msgstr, barker=args.barker)
+err, s = colordiff(symlststr, msgstr, barker=args.barker)
 
 print(f"rcvd= {s} ", end='')
 if err == 0:
@@ -401,7 +399,7 @@ if args.barker != None:
 else:
     recovered_wo_barker = recovered
 
-if args.interleave != None:
+if args.interleave:
     recovered_wo_barker = interleave.unmap(recovered_wo_barker)
     err, s = colordiff(bits_orig, recovered_wo_barker)
     print(f"vlti= {s} ", end='')
@@ -439,7 +437,7 @@ elif args.ecc == 'ldpc96':
     if args.barker != None:
         i = (len(llr) - args.barker) // 2
         llr = llr[:i] + llr[i+args.barker:]
-    if args.interleave != None:
+    if args.interleave:
         llr = interleave.unmap(llr)
     corr = l96_decode(llr)
     err, s = colordiff(bits_orig, corr)
